@@ -1,6 +1,6 @@
 // Конфигурация Supabase - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // https://your-project-id.supabase.co
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ваш anon ключ из Settings > API
+const SUPABASE_URL = 'Yhttps://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
 
 // Создаем клиент Supabase (пользователь должен заменить на свои данные)
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
