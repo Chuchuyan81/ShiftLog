@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал Рабочих Смен</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Учет рабочих смен и заработка">
+</head>
+<body>
+    <div id="app">
+        <!-- Экран загрузки -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Экран аутентификации -->
+        <div id="auth-screen" class="screen hidden">
+            <div class="auth-container">
+                <h1>Журнал Рабочих Смен</h1>
+                <div class="auth-tabs">
+                    <button class="tab-btn active" data-tab="login">Вход</button>
+                    <button class="tab-btn" data-tab="register">Регистрация</button>
+                </div>
+                
+                <form id="auth-form" class="auth-form">
+                    <div class="form-group">
+                        <input type="email" id="email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="password" placeholder="Пароль" required>
+                    </div>
+                    <div class="form-group hidden" id="confirm-password-group">
+                        <input type="password" id="confirm-password" placeholder="Подтвердите пароль">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Войти</button>
+                </form>
+                
+                <button id="forgot-password-btn" class="btn btn-link">Забыли пароль?</button>
+            </div>
+        </div>
+
+        <!-- Главное приложение -->
+        <div id="main-app" class="screen hidden">
+            <!-- Навигация -->
+            <nav class="nav-bar">
+                <button class="nav-btn active" data-screen="shifts">Журнал</button>
+                <button class="nav-btn" data-screen="reports">Итоги</button>
+                <button class="nav-btn" data-screen="settings">Настройки</button>
+            </nav>
+
+            <!-- Экран журнала смен -->
+            <div id="shifts-screen" class="content-screen">
+                <div class="screen-header">
+                    <h2>Журнал смен</h2>
+                    <div class="month-navigation">
+                        <button class="btn btn-icon" id="prev-month">←</button>
+                        <span id="current-month">Январь 2024</span>
+                        <button class="btn btn-icon" id="next-month">→</button>
+                    </div>
+                </div>
+                
+                <div class="shifts-table">
+                    <div class="table-header">
+                        <div class="table-cell">Дата</div>
+                        <div class="table-cell">Заведение</div>
+                        <div class="table-cell">Выручка</div>
+                        <div class="table-cell">Заработок</div>
+                    </div>
+                    <div id="shifts-list" class="table-body">
+                        <!-- Смены будут добавлены динамически -->
+                    </div>
+                </div>
+                
+                <button class="fab" id="add-shift-btn">+</button>
+            </div>
+
+            <!-- Экран итогов -->
+            <div id="reports-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h2>Итоги</h2>
+                    <div class="month-navigation">
+                        <button class="btn btn-icon" id="reports-prev-month">←</button>
+                        <span id="reports-current-month">Январь 2024</span>
+                        <button class="btn btn-icon" id="reports-next-month">→</button>
+                    </div>
+                </div>
+                
+                <div class="reports-content">
+                    <div class="report-section">
+                        <h3>Продажи</h3>
+                        <div id="sales-stats" class="stats-grid">
+                            <!-- Статистика продаж -->
+                        </div>
+                    </div>
+                    
+                    <div class="report-section">
+                        <h3>Финансы</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Общая выручка:</span>
+                                <span class="stat-value" id="total-revenue">0 ₽</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Общий выход:</span>
+                                <span class="stat-value" id="total-payout">0 ₽</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Общий чай:</span>
+                                <span class="stat-value" id="total-tips">0 ₽</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Заработок (гросс):</span>
+                                <span class="stat-value" id="gross-earnings">0 ₽</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Премия:</label>
+                            <input type="number" id="bonus-input" placeholder="0" min="0">
+                        </div>
+                        
+                        <div class="stat-item total">
+                            <span class="stat-label">Чистый заработок:</span>
+                            <span class="stat-value" id="net-earnings">0 ₽</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Дата получения:</label>
+                            <input type="date" id="payment-date">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-secondary" id="export-btn">Экспорт данных</button>
+                </div>
+            </div>
+
+            <!-- Экран настроек -->
+            <div id="settings-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h2>Настройки</h2>
+                </div>
+                
+                <div class="settings-content">
+                    <div class="settings-section">
+                        <h3>Заведения</h3>
+                        <div id="venues-list" class="list-items">
+                            <!-- Список заведений -->
+                        </div>
+                        <button class="btn btn-secondary" id="add-venue-btn">Добавить заведение</button>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Позиции/Услуги</h3>
+                        <div id="products-list" class="list-items">
+                            <!-- Список позиций -->
+                        </div>
+                        <button class="btn btn-secondary" id="add-product-btn">Добавить позицию</button>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Валюта</h3>
+                        <div class="form-group">
+                            <select id="currency-select">
+                                <option value="₽">₽ (Рубль)</option>
+                                <option value="$">$ (Доллар)</option>
+                                <option value="€">€ (Евро)</option>
+                                <option value="p.">p. (Рубль)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-danger" id="logout-btn">Выход</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальные окна -->
+    <div id="shift-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="shift-modal-title">Добавить смену</h3>
+                <button class="btn btn-icon" id="close-shift-modal">×</button>
+            </div>
+            <form id="shift-form" class="modal-body">
+                <div class="form-group">
+                    <label>Дата:</label>
+                    <input type="date" id="shift-date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Статус дня:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="workday" value="true" checked>
+                            Рабочий день
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="workday" value="false">
+                            Выходной
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="work-fields">
+                    <div class="form-group">
+                        <label>Заведение:</label>
+                        <select id="shift-venue" required>
+                            <option value="">Выберите заведение</option>
+                        </select>
+                    </div>
+                    
+                    <div id="products-fields">
+                        <!-- Поля для позиций будут добавлены динамически -->
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Выход (фиксированная ставка):</label>
+                        <input type="number" id="shift-payout" min="0" step="0.01">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Чаевые:</label>
+                        <input type="number" id="shift-tips" min="0" step="0.01">
+                    </div>
+                    
+                    <div class="form-group readonly">
+                        <label>Выручка:</label>
+                        <input type="text" id="shift-revenue" readonly>
+                    </div>
+                    
+                    <div class="form-group readonly">
+                        <label>Заработок:</label>
+                        <input type="text" id="shift-earnings" readonly>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-shift">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-danger hidden" id="delete-shift">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="venue-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="venue-modal-title">Добавить заведение</h3>
+                <button class="btn btn-icon" id="close-venue-modal">×</button>
+            </div>
+            <form id="venue-form" class="modal-body">
+                <div class="form-group">
+                    <label>Название заведения:</label>
+                    <input type="text" id="venue-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Ставка за выход по умолчанию:</label>
+                    <input type="number" id="venue-payout" min="0" step="0.01">
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-venue">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-danger hidden" id="delete-venue">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="product-modal-title">Добавить позицию</h3>
+                <button class="btn btn-icon" id="close-product-modal">×</button>
+            </div>
+            <form id="product-form" class="modal-body">
+                <div class="form-group">
+                    <label>Название позиции/услуги:</label>
+                    <input type="text" id="product-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Цена заведения за единицу:</label>
+                    <input type="number" id="product-price" min="0" step="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Метод расчета комиссии:</label>
+                    <select id="commission-type" required>
+                        <option value="fixed">Фиксированная сумма за единицу</option>
+                        <option value="percentage">Процент от цены заведения</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label id="commission-label">Значение комиссии:</label>
+                    <input type="number" id="commission-value" min="0" step="0.01" required>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-product">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-danger hidden" id="delete-product">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="message-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="message-title">Сообщение</h3>
+                <button class="btn btn-icon" id="close-message-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="message-text"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="close-message">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
