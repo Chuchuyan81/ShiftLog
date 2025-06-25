@@ -1,0 +1,48 @@
+[build]
+  # Команда сборки (не нужна для статического сайта)
+  command = ""
+  # Папка для публикации
+  publish = "."
+  
+[build.environment]
+  # Node.js версия (если понадобится)
+  NODE_VERSION = "18"
+
+# Настройки заголовков для безопасности и PWA
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Специальная настройка для манифеста PWA
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+# Настройка кэширования для статических ресурсов
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+    
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+# Принудительное HTTPS
+[[redirects]]
+  from = "http://shift-log-app.netlify.app/*"
+  to = "https://shift-log-app.netlify.app/:splat"
+  status = 301
+  force = true 
