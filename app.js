@@ -33,9 +33,11 @@ async function initializeApp() {
     
     if (session) {
         currentUser = session.user;
+        console.log('Пользователь авторизован:', currentUser.id);
         await loadUserData();
         showMainApp();
     } else {
+        console.log('Пользователь не авторизован');
         showAuthScreen();
     }
 
@@ -167,6 +169,9 @@ function setupSettingsListeners() {
         localStorage.setItem('currency', currency);
         updateCurrencyDisplay();
     });
+    
+    // Отладка пользователя
+    document.getElementById('debug-user-btn').addEventListener('click', debugCurrentUser);
 }
 
 function setupReportsListeners() {
@@ -246,6 +251,7 @@ async function handleAuth(e) {
         }
         
         currentUser = result.data.user;
+        console.log('Пользователь после входа:', currentUser.id);
         await loadUserData();
         showMainApp();
         
@@ -324,6 +330,11 @@ async function loadUserData() {
 }
 
 async function loadVenues() {
+    if (!currentUser || !currentUser.id) {
+        console.error('Пользователь не авторизован');
+        return;
+    }
+    
     try {
         const { data, error } = await supabase
             .from('venues')
@@ -337,10 +348,16 @@ async function loadVenues() {
         renderVenuesList();
     } catch (error) {
         console.error('Ошибка загрузки заведений:', error);
+        showMessage('Ошибка', 'Не удалось загрузить заведения: ' + error.message);
     }
 }
 
 async function loadProducts() {
+    if (!currentUser || !currentUser.id) {
+        console.error('Пользователь не авторизован');
+        return;
+    }
+    
     try {
         const { data, error } = await supabase
             .from('user_products')
@@ -354,6 +371,7 @@ async function loadProducts() {
         updateProductFields();
     } catch (error) {
         console.error('Ошибка загрузки позиций:', error);
+        showMessage('Ошибка', 'Не удалось загрузить позиции: ' + error.message);
     }
 }
 
@@ -632,6 +650,12 @@ function calculateShiftTotals() {
 async function handleShiftSubmit(e) {
     e.preventDefault();
     
+    // Проверяем, что пользователь авторизован
+    if (!currentUser || !currentUser.id) {
+        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+        return;
+    }
+    
     const shiftData = {
         user_id: currentUser.id,
         shift_date: document.getElementById('shift-date').value,
@@ -780,6 +804,12 @@ function editVenue(venueId) {
 async function handleVenueSubmit(e) {
     e.preventDefault();
     
+    // Проверяем, что пользователь авторизован
+    if (!currentUser || !currentUser.id) {
+        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+        return;
+    }
+    
     const venueData = {
         user_id: currentUser.id,
         name: document.getElementById('venue-name').value,
@@ -894,6 +924,12 @@ function updateCommissionLabel() {
 
 async function handleProductSubmit(e) {
     e.preventDefault();
+    
+    // Проверяем, что пользователь авторизован
+    if (!currentUser || !currentUser.id) {
+        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+        return;
+    }
     
     const productData = {
         user_id: currentUser.id,
@@ -1096,14 +1132,56 @@ function showMessage(title, text) {
     document.getElementById('message-modal').classList.remove('hidden');
 }
 
+async function debugCurrentUser() {
+    const debugInfo = document.getElementById('debug-info');
+    debugInfo.style.display = 'block';
+    
+    let info = '';
+    
+    // Проверяем текущего пользователя
+    info += `Current User: ${currentUser ? 'Есть' : 'НЕТ'}\n`;
+    if (currentUser) {
+        info += `User ID: ${currentUser.id || 'НЕТ ID'}\n`;
+        info += `Email: ${currentUser.email || 'НЕТ EMAIL'}\n`;
+    }
+    
+    // Проверяем сессию Supabase
+    try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        info += `\nSupabase Session: ${session ? 'Есть' : 'НЕТ'}\n`;
+        if (session && session.user) {
+            info += `Session User ID: ${session.user.id}\n`;
+            info += `Session Email: ${session.user.email}\n`;
+        }
+        if (error) {
+            info += `Session Error: ${error.message}\n`;
+        }
+    } catch (err) {
+        info += `\nОшибка проверки сессии: ${err.message}\n`;
+    }
+    
+    // Проверяем соответствие
+    if (currentUser && currentUser.id) {
+        info += `\n✅ Пользователь готов для создания записей`;
+    } else {
+        info += `\n❌ Проблема с авторизацией пользователя`;
+    }
+    
+    debugInfo.textContent = info;
+}
+
 // Настройка слушателей изменения аутентификации
 if (supabase) {
     supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         if (event === 'SIGNED_IN') {
             currentUser = session.user;
+            console.log('Пользователь вошел в систему:', currentUser.id);
             await loadUserData();
             showMainApp();
         } else if (event === 'SIGNED_OUT') {
+            console.log('Пользователь вышел из системы');
             currentUser = null;
             venues = [];
             products = [];
