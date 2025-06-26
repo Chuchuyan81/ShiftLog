@@ -7,7 +7,14 @@
     "start": "npx http-server -p 8080",
     "dev": "npx http-server -p 3000",
     "build": "echo 'Static app - no build needed'",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:mobile": "playwright test --project=mobile",
+    "test:desktop": "playwright test --project=desktop",
+    "install:browsers": "playwright install"
   },
   "keywords": [
     "shift",
@@ -15,12 +22,14 @@
     "log", 
     "salary",
     "mobile",
-    "pwa"
+    "pwa",
+    "testing"
   ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "@playwright/test": "^1.40.0"
   },
   "engines": {
     "node": ">=14.0.0"
