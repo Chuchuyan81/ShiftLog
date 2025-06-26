@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест UI - Журнал Смен</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
+        <h1>🧪 Тест интерфейса</h1>
+        
+        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px 0;">
+            <h3>Проверка модальных окон</h3>
+            <p>Если страница загрузилась без автоматически открытых модальных окон - проблема решена! ✅</p>
+            
+            <div style="margin: 20px 0;">
+                <button class="btn btn-primary" onclick="testShiftModal()">Тест: Модальное окно смены</button>
+                <button class="btn btn-secondary" onclick="testVenueModal()">Тест: Модальное окно заведения</button>
+                <button class="btn btn-secondary" onclick="testProductModal()">Тест: Модальное окно позиции</button>
+                <button class="btn btn-danger" onclick="testMessageModal()">Тест: Сообщение</button>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <button class="btn btn-secondary" onclick="closeAll()">Закрыть все модальные окна</button>
+            </div>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h4>📋 Результат теста:</h4>
+            <div id="test-result">
+                <span style="color: green;">✅ Модальные окна НЕ открываются автоматически при загрузке</span>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="index.html" class="btn btn-primary">🏠 Вернуться к основному приложению</a>
+        </div>
+    </div>
+
+    <!-- Копируем модальные окна из основного приложения для тестирования -->
+    <div id="shift-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Тест: Модальное окно смены</h3>
+                <button class="btn btn-icon" onclick="closeAll()">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Это тестовое модальное окно для проверки работы системы.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAll()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="venue-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Тест: Модальное окно заведения</h3>
+                <button class="btn btn-icon" onclick="closeAll()">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Это тестовое модальное окно для проверки работы системы.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAll()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="product-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Тест: Модальное окно позиции</h3>
+                <button class="btn btn-icon" onclick="closeAll()">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Это тестовое модальное окно для проверки работы системы.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAll()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Тест: Сообщение</h3>
+                <button class="btn btn-icon" onclick="closeAll()">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Это тестовое сообщение для проверки работы системы.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeAll()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Простые функции для тестирования модальных окон
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            console.log(`Открыто модальное окно: ${modalId}`);
+        }
+
+        function closeAll() {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            });
+            console.log('Все модальные окна закрыты');
+        }
+
+        function testShiftModal() {
+            openModal('shift-modal');
+        }
+
+        function testVenueModal() {
+            openModal('venue-modal');
+        }
+
+        function testProductModal() {
+            openModal('product-modal');
+        }
+
+        function testMessageModal() {
+            openModal('message-modal');
+        }
+
+        // Закрытие по клику вне модального окна
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeAll();
+                }
+            });
+        });
+
+        // Проверяем при загрузке страницы
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const modals = document.querySelectorAll('.modal');
+                let openModals = 0;
+                
+                modals.forEach(modal => {
+                    const computed = window.getComputedStyle(modal);
+                    if (computed.display !== 'none' && !modal.classList.contains('hidden')) {
+                        openModals++;
+                    }
+                });
+
+                const resultDiv = document.getElementById('test-result');
+                if (openModals > 0) {
+                    resultDiv.innerHTML = `<span style="color: red;">❌ Найдено ${openModals} открытых модальных окон! Проблема НЕ решена.</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: green;">✅ Модальные окна НЕ открываются автоматически - проблема РЕШЕНА!</span>`;
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,178 @@
+# Cursor Rules для проекта "Журнал Рабочих Смен"
+
+## ЯЗЫКОВЫЕ ТРЕБОВАНИЯ
+- ВСЕ ответы в чате ТОЛЬКО на русском языке
+- ВСЕ комментарии в коде ТОЛЬКО на русском языке  
+- Названия переменных/функций на английском (для совместимости)
+- UI текст на русском языке
+
+## Стиль общения
+- НЕ давать советы типа "Вот как можно сделать"
+- Предоставлять КОНКРЕТНЫЙ код или объяснение
+- Быть лаконичным и экспертным
+- Сразу давать ответ, потом объяснения
+- Предвосхищать потребности разработчика
+- НИКОГДА не ломать существующий функционал
+
+## Архитектура проекта
+
+### Технологический стек
+- Frontend: Vanilla JavaScript, HTML5, CSS3
+- Backend: Supabase (PostgreSQL, Auth, PostgREST)
+- PWA: Service Worker, Web App Manifest
+- Hosting: Netlify/Vercel
+
+### Ключевые файлы
+- app.js - основная логика (1374 строки)
+- index.html - структура интерфейса (355 строк)
+- style.css - стили и адаптивная верстка (627 строк)
+- sw.js - service worker для PWA
+- manifest.json - манифест веб-приложения
+
+### База данных Supabase
+```
+users (Supabase Auth)
+venues (заведения) -> user_id
+user_products (позиции/услуги) -> user_id  
+shifts (смены) -> user_id, venue_id
+shift_products (продажи) -> shift_id, product_id
+```
+
+## Правила разработки
+
+### JavaScript стандарты
+```javascript
+// Комментарии всегда на русском
+// Обработчик события клика на кнопку добавления смены
+async function handleAddShift(e) {
+    try {
+        // Валидация данных
+        if (!validateShiftData(data)) {
+            showMessage('Ошибка', 'Неверные данные');
+            return;
+        }
+        
+        // Сохранение в Supabase
+        const { data, error } = await supabase
+            .from('shifts')
+            .insert(shiftData);
+            
+        if (error) {
+            console.error('Ошибка сохранения смены:', error);
+            showMessage('Ошибка', 'Не удалось сохранить смену');
+            return;
+        }
+        
+        // Обновление интерфейса
+        await loadShifts();
+        closeModal();
+        
+    } catch (error) {
+        console.error('Неожиданная ошибка:', error);
+        showMessage('Ошибка', 'Произошла системная ошибка');
+    }
+}
+```
+
+### Supabase паттерны
+```javascript
+// Загрузка данных с фильтрацией по пользователю
+async function loadUserVenues() {
+    const { data, error } = await supabase
+        .from('venues')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('name');
+        
+    if (error) {
+        console.error('Ошибка загрузки заведений:', error);
+        return [];
+    }
+    
+    return data;
+}
+```
+
+## UI/UX требования
+
+### Адаптивность
+- Mobile-first подход
+- Тестировать на 320px, 768px, 1024px
+- Модальные окна на весь экран на мобильных
+- Touch-friendly элементы (44px минимум)
+
+## Бизнес-логика
+
+### Формулы расчетов
+```javascript
+// Расчет выручки за смену для заведения
+function calculateRevenue(shiftProducts, products) {
+    return shiftProducts.reduce((total, item) => {
+        const product = products.find(p => p.id === item.product_id);
+        return total + (item.quantity * product.price_per_unit);
+    }, 0);
+}
+
+// Расчет заработка сотрудника за смену
+function calculateEarnings(shiftProducts, products, fixedPayout, tips) {
+    // Комиссия с продаж
+    const commission = shiftProducts.reduce((total, item) => {
+        const product = products.find(p => p.id === item.product_id);
+        if (product.commission_type === 'fixed') {
+            return total + (item.quantity * product.commission_value);
+        } else {
+            return total + (item.quantity * product.price_per_unit * product.commission_value / 100);
+        }
+    }, 0);
+    
+    // Общий заработок
+    return commission + fixedPayout + tips;
+}
+```
+
+## Безопасность
+
+### RLS политики
+- Все таблицы имеют RLS включенный
+- Фильтрация по user_id на уровне БД
+- Никогда не передавать чувствительные данные в URL
+
+### Валидация данных
+```javascript
+// Валидация данных смены
+function validateShiftData(data) {
+    // Проверка обязательных полей
+    if (!data.shift_date) {
+        showMessage('Ошибка', 'Дата смены обязательна');
+        return false;
+    }
+    
+    // Проверка числовых значений
+    if (data.fixed_payout < 0 || data.tips < 0) {
+        showMessage('Ошибка', 'Суммы не могут быть отрицательными');
+        return false;
+    }
+    
+    return true;
+}
+```
+
+## КРИТИЧЕСКИ ВАЖНО
+
+**Этот проект УЖЕ в продакшене!**
+
+- Любые изменения тестировать на копии БД  
+- Проверять совместимость с существующими данными
+- Делать бэкапы перед изменением схемы БД
+- Постепенное развертывание новых функций
+- Мониторинг ошибок после деплоя
+
+## Метрики качества кода
+
+- Покрытие обработкой ошибок: 100%
+- Комментарии на русском: 100%
+- Валидация пользовательского ввода: 100%
+- Адаптивность интерфейса: 100%
+- RLS безопасность: 100%
+
+**Помни**: каждая строка кода влияет на реальных пользователей!

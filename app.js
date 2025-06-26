@@ -2,8 +2,19 @@
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
 
+// Проверяем загрузку библиотеки Supabase
+console.log('Проверка загрузки Supabase:', {
+    windowSupabase: !!window.supabase,
+    windowSupabaseType: typeof window.supabase
+});
+
 // Создаем клиент Supabase (пользователь должен заменить на свои данные)
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+console.log('Клиент Supabase создан:', {
+    supabaseExists: !!supabase,
+    supabaseType: typeof supabase
+});
 
 // Состояние приложения
 let currentUser = null;
@@ -17,14 +28,30 @@ let editingVenue = null;
 let editingProduct = null;
 
 // Инициализация приложения
-document.addEventListener('DOMContentLoaded', async () => {
-    await initializeApp();
-});
+console.log('Начало загрузки скрипта app.js');
+
+function initApp() {
+    console.log('Инициализация приложения начата');
+    // Принудительно скрываем все модальные окна при загрузке
+    closeAllModals();
+    initializeApp();
+}
+
+if (document.readyState === 'loading') {
+    console.log('DOM еще загружается, ждем DOMContentLoaded');
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    console.log('DOM уже загружен, запускаем инициализацию');
+    initApp();
+}
 
 async function initializeApp() {
     // Проверяем наличие Supabase
     if (!supabase) {
-        showMessage('Ошибка', 'Не удалось подключиться к базе данных. Настройте Supabase.');
+        // Задержка перед показом сообщения, чтобы интерфейс полностью загрузился
+        setTimeout(() => {
+            showMessage('Ошибка', 'Не удалось подключиться к базе данных. Настройте Supabase.');
+        }, 100);
         return;
     }
 
@@ -135,7 +162,7 @@ function setupShiftsListeners() {
     });
     
     // Добавление смены
-    document.getElementById('add-shift-btn').addEventListener('click', openShiftModal);
+    document.getElementById('add-shift-btn').addEventListener('click', () => openShiftModal());
     
     // Форма смены
     document.getElementById('shift-form').addEventListener('submit', handleShiftSubmit);
@@ -153,11 +180,11 @@ function setupShiftsListeners() {
 
 function setupSettingsListeners() {
     // Заведения
-    document.getElementById('add-venue-btn').addEventListener('click', openVenueModal);
+    document.getElementById('add-venue-btn').addEventListener('click', () => openVenueModal());
     document.getElementById('venue-form').addEventListener('submit', handleVenueSubmit);
     
     // Позиции
-    document.getElementById('add-product-btn').addEventListener('click', openProductModal);
+    document.getElementById('add-product-btn').addEventListener('click', () => openProductModal());
     document.getElementById('product-form').addEventListener('submit', handleProductSubmit);
     
     // Тип комиссии
@@ -344,6 +371,15 @@ async function loadVenues() {
         
         if (error) throw error;
         venues = data || [];
+        
+        // Диагностика: проверяем корректность загруженных данных
+        console.log('Загружено заведений:', venues.length);
+        venues.forEach((venue, index) => {
+            if (!venue.id || venue.id === 'undefined') {
+                console.error(`Некорректное заведение #${index}:`, venue);
+            }
+        });
+        
         updateVenueSelects();
         renderVenuesList();
     } catch (error) {
@@ -367,6 +403,15 @@ async function loadProducts() {
         
         if (error) throw error;
         products = data || [];
+        
+        // Диагностика: проверяем корректность загруженных данных
+        console.log('Загружено продуктов:', products.length);  
+        products.forEach((product, index) => {
+            if (!product.id || product.id === 'undefined') {
+                console.error(`Некорректный продукт #${index}:`, product);
+            }
+        });
+        
         renderProductsList();
         updateProductFields();
     } catch (error) {
@@ -462,18 +507,39 @@ function renderVenuesList() {
     container.innerHTML = '';
     
     venues.forEach(venue => {
+        // Проверяем корректность данных заведения
+        if (!venue.id || venue.id === 'undefined') {
+            console.error('Некорректные данные заведения в списке:', venue);
+            return; // Пропускаем это заведение
+        }
+        
         const venueElement = document.createElement('div');
         venueElement.className = 'list-item';
         venueElement.innerHTML = `
             <div class="list-item-content">
-                <div class="list-item-title">${venue.name}</div>
-                <div class="list-item-subtitle">Ставка: ${formatCurrency(venue.default_fixed_payout)}</div>
+                <div class="list-item-title">${venue.name || 'Без названия'}</div>
+                <div class="list-item-subtitle">Ставка: ${formatCurrency(venue.default_fixed_payout || 0)}</div>
             </div>
             <div class="list-item-actions">
-                <button class="btn btn-secondary" onclick="editVenue('${venue.id}')">Изменить</button>
-                <button class="btn btn-danger" onclick="confirmDeleteVenue('${venue.id}')">Удалить</button>
+                <button class="btn btn-secondary" data-action="edit" data-venue-id="${venue.id}">Изменить</button>
+                <button class="btn btn-danger" data-action="delete" data-venue-id="${venue.id}">Удалить</button>
             </div>
         `;
+        
+        // Добавляем обработчики событий
+        const editBtn = venueElement.querySelector('[data-action="edit"]');
+        const deleteBtn = venueElement.querySelector('[data-action="delete"]');
+        
+        editBtn.addEventListener('click', () => {
+            console.log('Клик по кнопке редактирования, venueId:', venue.id);
+            editVenue(venue.id);
+        });
+        
+        deleteBtn.addEventListener('click', () => {
+            console.log('Клик по кнопке удаления, venueId:', venue.id);
+            confirmDeleteVenue(venue.id);
+        });
+        
         container.appendChild(venueElement);
     });
 }
@@ -483,23 +549,44 @@ function renderProductsList() {
     container.innerHTML = '';
     
     products.forEach(product => {
+        // Проверяем корректность данных продукта
+        if (!product.id || product.id === 'undefined') {
+            console.error('Некорректные данные продукта в списке:', product);
+            return; // Пропускаем этот продукт
+        }
+        
         const productElement = document.createElement('div');
         productElement.className = 'list-item';
         
         const commissionText = product.commission_type === 'fixed' 
-            ? formatCurrency(product.commission_value)
-            : `${product.commission_value}%`;
+            ? formatCurrency(product.commission_value || 0)
+            : `${product.commission_value || 0}%`;
             
         productElement.innerHTML = `
             <div class="list-item-content">
-                <div class="list-item-title">${product.name}</div>
-                <div class="list-item-subtitle">Цена: ${formatCurrency(product.price_per_unit)}, Комиссия: ${commissionText}</div>
+                <div class="list-item-title">${product.name || 'Без названия'}</div>
+                <div class="list-item-subtitle">Цена: ${formatCurrency(product.price_per_unit || 0)}, Комиссия: ${commissionText}</div>
             </div>
             <div class="list-item-actions">
-                <button class="btn btn-secondary" onclick="editProduct('${product.id}')">Изменить</button>
-                <button class="btn btn-danger" onclick="confirmDeleteProduct('${product.id}')">Удалить</button>
+                <button class="btn btn-secondary" data-action="edit" data-product-id="${product.id}">Изменить</button>
+                <button class="btn btn-danger" data-action="delete" data-product-id="${product.id}">Удалить</button>
             </div>
         `;
+        
+        // Добавляем обработчики событий
+        const editBtn = productElement.querySelector('[data-action="edit"]');
+        const deleteBtn = productElement.querySelector('[data-action="delete"]');
+        
+        editBtn.addEventListener('click', () => {
+            console.log('Клик по кнопке редактирования продукта, productId:', product.id);
+            editProduct(product.id);
+        });
+        
+        deleteBtn.addEventListener('click', () => {
+            console.log('Клик по кнопке удаления продукта, productId:', product.id);
+            confirmDeleteProduct(product.id);
+        });
+        
         container.appendChild(productElement);
     });
 }
@@ -522,6 +609,7 @@ function openShiftModal(shift = null) {
     }
     
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     updateProductFields();
 }
 
@@ -650,20 +738,26 @@ function calculateShiftTotals() {
 async function handleShiftSubmit(e) {
     e.preventDefault();
     
-    // Проверяем, что пользователь авторизован
-    if (!currentUser || !currentUser.id) {
-        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+    // Получаем актуального пользователя из Supabase
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!user || userError || !user.id) {
+        console.error('Ошибка получения пользователя:', userError);
+        showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
         return;
     }
     
+    console.log('Текущий пользователь при добавлении смены:', user.id);
+    
     const shiftData = {
-        user_id: currentUser.id,
+        user_id: user.id, // Используем актуального пользователя из Supabase
         shift_date: document.getElementById('shift-date').value,
         is_workday: document.querySelector('input[name="workday"]:checked').value === 'true',
         venue_id: document.getElementById('shift-venue').value || null,
         fixed_payout: parseFloat(document.getElementById('shift-payout').value) || 0,
         tips: parseFloat(document.getElementById('shift-tips').value) || 0
     };
+    
+    console.log('Данные смены для отправки:', shiftData);
     
     // Рассчитываем итоги
     let revenue = 0;
@@ -699,7 +793,14 @@ async function handleShiftSubmit(e) {
     try {
         let shiftId;
         
-        if (editingShift) {
+        if (editingShift && editingShift.id) {
+            // Проверяем, что у редактируемой смены есть корректный ID
+            if (!editingShift.id || editingShift.id === 'undefined') {
+                console.error('Некорректный ID смены:', editingShift);
+                showMessage('Ошибка', 'Некорректный ID смены. Попробуйте перезагрузить страницу.');
+                return;
+            }
+            
             // Обновляем смену
             const { error } = await supabase
                 .from('shifts')
@@ -754,7 +855,11 @@ function editShift(shift) {
 }
 
 async function deleteShift() {
-    if (!editingShift) return;
+    if (!editingShift || !editingShift.id || editingShift.id === 'undefined') {
+        console.error('Некорректная смена для удаления:', editingShift);
+        showMessage('Ошибка', 'Некорректная смена для удаления');
+        return;
+    }
     
     try {
         const { error } = await supabase
@@ -775,49 +880,148 @@ async function deleteShift() {
 
 // Модальные окна для заведений
 function openVenueModal(venue = null) {
+    console.log('openVenueModal вызвана с параметром:', {
+        venue: venue,
+        venueType: typeof venue,
+        venueIsNull: venue === null,
+        venueIsUndefined: venue === undefined,
+        venueId: venue?.id,
+        venueName: venue?.name,
+        isValidId: venue?.id && venue.id !== 'undefined'
+    });
+    
     editingVenue = venue;
+    
     const modal = document.getElementById('venue-modal');
     const title = document.getElementById('venue-modal-title');
     const deleteBtn = document.getElementById('delete-venue');
     
-    if (venue) {
+    if (venue && venue.id) {
+        // Редактирование существующего заведения
+        // Дополнительная проверка корректности данных заведения
+        if (!venue.id || venue.id === 'undefined') {
+            console.error('Некорректные данные заведения для редактирования:', venue);
+            showMessage('Ошибка', 'Некорректные данные заведения. Попробуйте перезагрузить список заведений.');
+            return;
+        }
+        
         title.textContent = 'Редактировать заведение';
         deleteBtn.classList.remove('hidden');
-        document.getElementById('venue-name').value = venue.name;
-        document.getElementById('venue-payout').value = venue.default_fixed_payout;
+        document.getElementById('venue-name').value = venue.name || '';
+        document.getElementById('venue-payout').value = venue.default_fixed_payout || 0;
     } else {
+        // Добавление нового заведения (venue = null или venue без id)
+        console.log('Открытие модального окна для добавления нового заведения');
         title.textContent = 'Добавить заведение';
         deleteBtn.classList.add('hidden');
         document.getElementById('venue-form').reset();
+        
+        // Сбрасываем editingVenue при добавлении нового
+        editingVenue = null;
     }
     
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 function editVenue(venueId) {
-    const venue = venues.find(v => v.id === venueId);
+    console.log('editVenue вызвана с параметром:', {
+        venueId: venueId,
+        venueIdType: typeof venueId,
+        venuesCount: venues.length,
+        venuesIds: venues.map(v => ({ id: v.id, type: typeof v.id }))
+    });
+    
+    // Пробуем найти заведение с учетом разных типов ID
+    let venue = venues.find(v => v.id === venueId);
+    
+    // Если не нашли, пробуем как строку
+    if (!venue && typeof venueId === 'string') {
+        venue = venues.find(v => String(v.id) === venueId);
+    }
+    
+    // Если не нашли, пробуем как число
+    if (!venue && !isNaN(venueId)) {
+        venue = venues.find(v => v.id === parseInt(venueId));
+    }
+    
     if (venue) {
+        console.log('Найдено заведение для редактирования:', venue);
         openVenueModal(venue);
+    } else {
+        console.error('Заведение не найдено:', {
+            searchId: venueId,
+            availableVenues: venues
+        });
+        showMessage('Ошибка', 'Заведение не найдено. Попробуйте перезагрузить список заведений.');
     }
 }
 
 async function handleVenueSubmit(e) {
     e.preventDefault();
     
-    // Проверяем, что пользователь авторизован
-    if (!currentUser || !currentUser.id) {
-        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+    // Получаем актуального пользователя из Supabase
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!user || userError || !user.id) {
+        console.error('Ошибка получения пользователя:', userError);
+        showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+        return;
+    }
+    
+    console.log('Текущий пользователь при добавлении заведения:', user.id);
+    
+    // Получаем элементы формы с проверкой существования
+    const venueNameElement = document.getElementById('venue-name');
+    const venuePayoutElement = document.getElementById('venue-payout');
+    
+    console.log('Элементы формы:', {
+        venueNameElement: !!venueNameElement,
+        venuePayoutElement: !!venuePayoutElement
+    });
+    
+    if (!venueNameElement || !venuePayoutElement) {
+        showMessage('Ошибка', 'Элементы формы не найдены. Попробуйте перезагрузить страницу.');
+        return;
+    }
+    
+    // Получаем значения из формы с проверкой
+    const venueName = venueNameElement.value?.trim();
+    const venuePayout = parseFloat(venuePayoutElement.value) || 0;
+    
+    console.log('Значения из формы:', {
+        venueName: venueName,
+        venueNameType: typeof venueName,
+        venueNameLength: venueName?.length,
+        venuePayout: venuePayout,
+        venuePayoutType: typeof venuePayout
+    });
+    
+    // Проверяем что название заведения заполнено
+    if (!venueName || venueName === 'undefined') {
+        showMessage('Ошибка', 'Введите название заведения');
         return;
     }
     
     const venueData = {
-        user_id: currentUser.id,
-        name: document.getElementById('venue-name').value,
-        default_fixed_payout: parseFloat(document.getElementById('venue-payout').value) || 0
+        user_id: user.id,
+        name: venueName,
+        default_fixed_payout: venuePayout
     };
     
+    console.log('Данные заведения для отправки:', venueData);
+    
     try {
-        if (editingVenue) {
+        if (editingVenue && editingVenue.id) {
+            // Проверяем, что у редактируемого заведения есть корректный ID
+            if (!editingVenue.id || editingVenue.id === 'undefined') {
+                console.error('Некорректный ID заведения:', editingVenue);
+                showMessage('Ошибка', 'Некорректный ID заведения. Попробуйте перезагрузить страницу.');
+                return;
+            }
+            
+            console.log('Обновление заведения с ID:', editingVenue.id);
+            
+            // Обновляем заведение
             const { error } = await supabase
                 .from('venues')
                 .update(venueData)
@@ -825,6 +1029,9 @@ async function handleVenueSubmit(e) {
             
             if (error) throw error;
         } else {
+            // Создаем новое заведение (аналогично handleProductSubmit)
+            console.log('Создание нового заведения');
+            
             const { error } = await supabase
                 .from('venues')
                 .insert(venueData);
@@ -837,14 +1044,32 @@ async function handleVenueSubmit(e) {
         showMessage('Успех', editingVenue ? 'Заведение обновлено' : 'Заведение добавлено');
         
     } catch (error) {
-        showMessage('Ошибка', error.message);
+        console.error('Полная ошибка при работе с заведением:', error);
+        showMessage('Ошибка', `Ошибка при сохранении: ${error.message}`);
     }
 }
 
 function confirmDeleteVenue(venueId) {
-    const venue = venues.find(v => v.id === venueId);
+    console.log('confirmDeleteVenue вызвана с параметром:', venueId);
+    
+    // Пробуем найти заведение с учетом разных типов ID
+    let venue = venues.find(v => v.id === venueId);
+    
+    // Если не нашли, пробуем как строку
+    if (!venue && typeof venueId === 'string') {
+        venue = venues.find(v => String(v.id) === venueId);
+    }
+    
+    // Если не нашли, пробуем как число
+    if (!venue && !isNaN(venueId)) {
+        venue = venues.find(v => v.id === parseInt(venueId));
+    }
+    
     if (venue && confirm(`Удалить заведение "${venue.name}"?`)) {
         deleteVenueById(venueId);
+    } else if (!venue) {
+        console.error('Заведение не найдено для удаления:', venueId);
+        showMessage('Ошибка', 'Заведение не найдено');
     }
 }
 
@@ -866,7 +1091,11 @@ async function deleteVenueById(venueId) {
 }
 
 async function deleteVenue() {
-    if (!editingVenue) return;
+    if (!editingVenue || !editingVenue.id || editingVenue.id === 'undefined') {
+        console.error('Некорректное заведение для удаления:', editingVenue);
+        showMessage('Ошибка', 'Некорректное заведение для удаления');
+        return;
+    }
     
     try {
         const { error } = await supabase
@@ -907,12 +1136,38 @@ function openProductModal(product = null) {
     
     updateCommissionLabel();
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 function editProduct(productId) {
-    const product = products.find(p => p.id === productId);
+    console.log('editProduct вызвана с параметром:', {
+        productId: productId,
+        productIdType: typeof productId,
+        productsCount: products.length
+    });
+    
+    // Пробуем найти продукт с учетом разных типов ID
+    let product = products.find(p => p.id === productId);
+    
+    // Если не нашли, пробуем как строку
+    if (!product && typeof productId === 'string') {
+        product = products.find(p => String(p.id) === productId);
+    }
+    
+    // Если не нашли, пробуем как число
+    if (!product && !isNaN(productId)) {
+        product = products.find(p => p.id === parseInt(productId));
+    }
+    
     if (product) {
+        console.log('Найден продукт для редактирования:', product);
         openProductModal(product);
+    } else {
+        console.error('Продукт не найден:', {
+            searchId: productId,
+            availableProducts: products
+        });
+        showMessage('Ошибка', 'Продукт не найден. Попробуйте перезагрузить список продуктов.');
     }
 }
 
@@ -925,22 +1180,65 @@ function updateCommissionLabel() {
 async function handleProductSubmit(e) {
     e.preventDefault();
     
-    // Проверяем, что пользователь авторизован
-    if (!currentUser || !currentUser.id) {
-        showMessage('Ошибка', 'Пользователь не авторизован. Войдите в систему заново.');
+    // Получаем актуального пользователя из Supabase
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!user || userError || !user.id) {
+        console.error('Ошибка получения пользователя:', userError);
+        showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+        return;
+    }
+    
+    console.log('Текущий пользователь при добавлении позиции:', user.id);
+    
+    // Получаем элементы формы с проверкой существования
+    const productNameElement = document.getElementById('product-name');
+    const productPriceElement = document.getElementById('product-price');
+    const commissionTypeElement = document.getElementById('commission-type');
+    const commissionValueElement = document.getElementById('commission-value');
+    
+    if (!productNameElement || !productPriceElement || !commissionTypeElement || !commissionValueElement) {
+        showMessage('Ошибка', 'Элементы формы позиции не найдены. Попробуйте перезагрузить страницу.');
+        return;
+    }
+    
+    // Получаем значения из формы с проверкой
+    const productName = productNameElement.value?.trim();
+    const productPrice = parseFloat(productPriceElement.value) || 0;
+    const commissionType = commissionTypeElement.value;
+    const commissionValue = parseFloat(commissionValueElement.value) || 0;
+    
+    console.log('Значения из формы позиции:', {
+        productName: productName,
+        productPrice: productPrice,
+        commissionType: commissionType,
+        commissionValue: commissionValue
+    });
+    
+    // Проверяем что название позиции заполнено
+    if (!productName || productName === 'undefined') {
+        showMessage('Ошибка', 'Введите название позиции');
         return;
     }
     
     const productData = {
-        user_id: currentUser.id,
-        name: document.getElementById('product-name').value,
-        price_per_unit: parseFloat(document.getElementById('product-price').value),
-        commission_type: document.getElementById('commission-type').value,
-        commission_value: parseFloat(document.getElementById('commission-value').value)
+        user_id: user.id, // Используем актуального пользователя из Supabase
+        name: productName,
+        price_per_unit: productPrice,
+        commission_type: commissionType,
+        commission_value: commissionValue
     };
     
+    console.log('Данные позиции для отправки:', productData);
+    
     try {
-        if (editingProduct) {
+        if (editingProduct && editingProduct.id) {
+            // Проверяем, что у редактируемого продукта есть корректный ID
+            if (!editingProduct.id || editingProduct.id === 'undefined') {
+                console.error('Некорректный ID продукта:', editingProduct);
+                showMessage('Ошибка', 'Некорректный ID продукта. Попробуйте перезагрузить страницу.');
+                return;
+            }
+            
             const { error } = await supabase
                 .from('user_products')
                 .update(productData)
@@ -965,9 +1263,26 @@ async function handleProductSubmit(e) {
 }
 
 function confirmDeleteProduct(productId) {
-    const product = products.find(p => p.id === productId);
+    console.log('confirmDeleteProduct вызвана с параметром:', productId);
+    
+    // Пробуем найти продукт с учетом разных типов ID
+    let product = products.find(p => p.id === productId);
+    
+    // Если не нашли, пробуем как строку
+    if (!product && typeof productId === 'string') {
+        product = products.find(p => String(p.id) === productId);
+    }
+    
+    // Если не нашли, пробуем как число
+    if (!product && !isNaN(productId)) {
+        product = products.find(p => p.id === parseInt(productId));
+    }
+    
     if (product && confirm(`Удалить позицию "${product.name}"?`)) {
         deleteProductById(productId);
+    } else if (!product) {
+        console.error('Продукт не найден для удаления:', productId);
+        showMessage('Ошибка', 'Продукт не найден');
     }
 }
 
@@ -989,7 +1304,11 @@ async function deleteProductById(productId) {
 }
 
 async function deleteProduct() {
-    if (!editingProduct) return;
+    if (!editingProduct || !editingProduct.id || editingProduct.id === 'undefined') {
+        console.error('Некорректный продукт для удаления:', editingProduct);
+        showMessage('Ошибка', 'Некорректный продукт для удаления');
+        return;
+    }
     
     try {
         const { error } = await supabase
@@ -1102,6 +1421,15 @@ function exportData() {
 }
 
 // Утилиты
+async function getCurrentUser() {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!user || error || !user.id) {
+        console.error('Ошибка получения пользователя:', error);
+        throw new Error('Сессия устарела. Войдите в систему заново.');
+    }
+    return user;
+}
+
 function formatCurrency(amount) {
     return `${(amount || 0).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency}`;
 }
@@ -1118,18 +1446,31 @@ function updateCurrencyDisplay() {
 }
 
 function closeAllModals() {
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.classList.add('hidden');
-    });
-    editingShift = null;
-    editingVenue = null;
-    editingProduct = null;
+    try {
+        // Находим все модальные окна и принудительно скрываем их
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.classList.add('hidden');
+            modal.style.display = 'none'; // Дополнительная защита
+        });
+        
+        // Сбрасываем состояние редактирования
+        editingShift = null;
+        editingVenue = null;
+        editingProduct = null;
+        
+        console.log('Все модальные окна закрыты');
+    } catch (error) {
+        console.log('Ошибка при закрытии модальных окон (возможно DOM еще не загружен):', error.message);
+    }
 }
 
 function showMessage(title, text) {
     document.getElementById('message-title').textContent = title;
     document.getElementById('message-text').textContent = text;
-    document.getElementById('message-modal').classList.remove('hidden');
+    const modal = document.getElementById('message-modal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 async function debugCurrentUser() {
@@ -1138,32 +1479,30 @@ async function debugCurrentUser() {
     
     let info = '';
     
-    // Проверяем текущего пользователя
-    info += `Current User: ${currentUser ? 'Есть' : 'НЕТ'}\n`;
+    // Проверяем текущего пользователя (глобальная переменная)
+    info += `Current User (глобальная переменная): ${currentUser ? 'Есть' : 'НЕТ'}\n`;
     if (currentUser) {
         info += `User ID: ${currentUser.id || 'НЕТ ID'}\n`;
         info += `Email: ${currentUser.email || 'НЕТ EMAIL'}\n`;
     }
     
-    // Проверяем сессию Supabase
+    // Проверяем актуального пользователя через новую функцию
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        info += `\nSupabase Session: ${session ? 'Есть' : 'НЕТ'}\n`;
-        if (session && session.user) {
-            info += `Session User ID: ${session.user.id}\n`;
-            info += `Session Email: ${session.user.email}\n`;
+        const actualUser = await getCurrentUser();
+        info += `\nАктуальный пользователь (через getCurrentUser): Есть\n`;
+        info += `Actual User ID: ${actualUser.id}\n`;
+        info += `Actual Email: ${actualUser.email}\n`;
+        
+        // Проверяем соответствие
+        if (currentUser && currentUser.id === actualUser.id) {
+            info += `\n✅ Глобальная переменная соответствует актуальному пользователю`;
+        } else {
+            info += `\n⚠️ Глобальная переменная НЕ соответствует актуальному пользователю`;
         }
-        if (error) {
-            info += `Session Error: ${error.message}\n`;
-        }
-    } catch (err) {
-        info += `\nОшибка проверки сессии: ${err.message}\n`;
-    }
-    
-    // Проверяем соответствие
-    if (currentUser && currentUser.id) {
+        
         info += `\n✅ Пользователь готов для создания записей`;
-    } else {
+    } catch (err) {
+        info += `\nОшибка получения актуального пользователя: ${err.message}`;
         info += `\n❌ Проблема с авторизацией пользователя`;
     }
     

@@ -23,6 +23,15 @@ body {
     display: none !important;
 }
 
+/* Принудительно скрываем модальные окна по умолчанию */
+.modal {
+    display: none;
+}
+
+.modal:not(.hidden) {
+    display: flex;
+}
+
 .screen {
     min-height: 100vh;
     padding: 0;
@@ -492,7 +501,6 @@ body {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
-    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
