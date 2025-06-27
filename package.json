@@ -11,7 +11,14 @@
     "test:all": "npm run test && npm run test:browser",
     "test:coverage": "node test-node.js && echo 'Проверьте test-report-node.json для детального отчета'",
     "build": "echo 'Static app - no build needed'",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:mobile": "playwright test --project=mobile",
+    "test:desktop": "playwright test --project=desktop",
+    "install:browsers": "playwright install"
   },
   "keywords": [
     "shift",
@@ -20,13 +27,18 @@
     "salary",
     "mobile",
     "pwa",
+<<<<<<< HEAD
     "testing",
     "automation"
+=======
+    "testing"
+>>>>>>> d40ee20935ce8fa98a679562d81df1d48bf795bf
   ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "@playwright/test": "^1.40.0"
   },
   "engines": {
     "node": ">=14.0.0"
