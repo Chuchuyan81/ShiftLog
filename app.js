@@ -199,6 +199,63 @@ function setupSettingsListeners() {
     
     // Отладка пользователя
     document.getElementById('debug-user-btn').addEventListener('click', debugCurrentUser);
+    document.getElementById('test-shift-products-btn').addEventListener('click', testShiftProducts);
+    document.getElementById('analyze-shifts-btn').addEventListener('click', analyzeExistingShifts);
+    
+    // Добавляем глобальную функцию для теста кнопки сохранения
+    window.testSaveButton = function() {
+        console.log('=== ТЕСТ КНОПКИ СОХРАНЕНИЯ ===');
+        
+        const form = document.getElementById('shift-form');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const modal = document.getElementById('shift-modal');
+        
+        console.log('Форма shift-form:', form);
+        console.log('Кнопка submit:', submitBtn);
+        console.log('Модальное окно открыто?', !modal.classList.contains('hidden'));
+        
+        // Проверяем обработчики событий
+        const listeners = getEventListeners(form);
+        console.log('Обработчики событий формы:', listeners);
+        
+        // Попробуем программно запустить submit
+        console.log('Пробуем программный submit...');
+        try {
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        } catch (error) {
+            console.error('Ошибка при программном submit:', error);
+        }
+    };
+    
+    // Добавляем глобальную функцию для теста значений из консоли
+    window.testProductValues = function() {
+        console.log('=== ТЕСТ ЗНАЧЕНИЙ ПОЛЕЙ ПРОДУКТОВ ===');
+        const allInputs = document.querySelectorAll('#product-fields .product-input');
+        console.log(`Найдено ${allInputs.length} полей продуктов:`);
+        
+        allInputs.forEach((input, index) => {
+            console.log(`Поле ${index + 1}:`, {
+                id: input.id,
+                'data-product-id': input.getAttribute('data-product-id'),
+                value: input.value,
+                element: input
+            });
+        });
+        
+        // Тестируем поиск по селекторам
+        const testProductId = allInputs[0]?.getAttribute('data-product-id');
+        if (testProductId) {
+            const byGlobalSelector = document.querySelector(`[data-product-id="${testProductId}"]`);
+            const shiftModal = document.getElementById('shift-modal');
+            const byModalSelector = shiftModal.querySelector(`[data-product-id="${testProductId}"]`);
+            const byId = document.getElementById(`product-${testProductId}`);
+            console.log('Тест поиска для первого продукта:');
+            console.log('По глобальному селектору (НЕПРАВИЛЬНО):', byGlobalSelector);
+            console.log('По селектору в модальном окне (ПРАВИЛЬНО):', byModalSelector);
+            console.log('По ID:', byId);
+            console.log('Модальный селектор = ID?', byModalSelector === byId);
+        }
+    };
 }
 
 function setupReportsListeners() {
@@ -428,7 +485,26 @@ async function loadShifts() {
     const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
     
+    console.log('Загрузка смен для пользователя:', currentUser?.id);
+    console.log('Период:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
+    
     try {
+        // Сначала попробуем загрузить смены без связанных данных
+        const { data: basicShifts, error: basicError } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+            .order('shift_date');
+            
+        console.log('Базовые смены:', basicShifts);
+        if (basicError) {
+            console.error('Ошибка загрузки базовых смен:', basicError);
+            throw basicError;
+        }
+        
+        // Теперь пробуем с полными данными, исключая venue_products из JOIN
         const { data, error } = await supabase
             .from('shifts')
             .select(`
@@ -438,7 +514,7 @@ async function loadShifts() {
                     quantity,
                     price_snapshot,
                     commission_snapshot,
-                    venue_products(name)
+                    product_id
                 )
             `)
             .eq('user_id', currentUser.id)
@@ -446,11 +522,19 @@ async function loadShifts() {
             .lte('shift_date', endOfMonth.toISOString().split('T')[0])
             .order('shift_date');
         
-        if (error) throw error;
-        shifts = data || [];
+        console.log('Полные данные смен:', data);
+        if (error) {
+            console.error('Ошибка загрузки полных данных:', error);
+            // Если есть ошибка с JOIN, используем базовые данные
+            shifts = basicShifts || [];
+        } else {
+            shifts = data || [];
+        }
+        
         renderShiftsList();
     } catch (error) {
         console.error('Ошибка загрузки смен:', error);
+        showMessage('Ошибка', 'Не удалось загрузить смены: ' + error.message);
     }
 }
 
@@ -477,12 +561,16 @@ function renderShiftsList() {
     const container = document.getElementById('shifts-list');
     container.innerHTML = '';
     
+    console.log('Отображение смен:', shifts);
+    
     if (shifts.length === 0) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6b7280;">Нет данных за выбранный месяц</div>';
         return;
     }
     
     shifts.forEach(shift => {
+        console.log('Отображаем смену:', shift);
+        
         const shiftElement = document.createElement('div');
         shiftElement.className = `shift-row ${!shift.is_workday ? 'holiday' : ''}`;
         shiftElement.onclick = () => editShift(shift);
@@ -490,16 +578,19 @@ function renderShiftsList() {
         const date = new Date(shift.shift_date);
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
+        // Получаем название заведения
+        const venueName = shift.venues?.name || 'Не указано';
+        
         shiftElement.innerHTML = `
             <div class="table-cell">
                 <div>
                     <div class="shift-date">${dayNames[date.getDay()]} ${date.getDate()}</div>
-                    <div class="shift-venue">${shift.venues?.name || 'Не указано'}</div>
+                    <div class="shift-venue">${venueName}</div>
                 </div>
             </div>
-            <div class="table-cell shift-venue">${shift.venues?.name || 'Не указано'}</div>
-            <div class="table-cell shift-amount">${formatCurrency(shift.revenue_generated)}</div>
-            <div class="table-cell shift-amount">${formatCurrency(shift.earnings)}</div>
+            <div class="table-cell shift-venue">${venueName}</div>
+            <div class="table-cell shift-amount">${formatCurrency(shift.revenue_generated || 0)}</div>
+            <div class="table-cell shift-amount">${formatCurrency(shift.earnings || 0)}</div>
         `;
         
         container.appendChild(shiftElement);
@@ -612,9 +703,19 @@ function openShiftModal(shift = null) {
         resetShiftForm();
     }
     
+    // Добавляем обработчики событий для радиокнопок рабочий/выходной день
+    const workdayRadios = document.querySelectorAll('input[name="workday"]');
+    workdayRadios.forEach(radio => {
+        radio.addEventListener('change', toggleWorkFields);
+    });
+    
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
+    
+    // Обновляем поля продуктов только один раз при открытии
+    console.log('Открытие модального окна - начальное обновление полей');
     updateProductFields();
+    calculateShiftTotals(); // Начальный расчет
 }
 
 function populateShiftForm(shift) {
@@ -660,22 +761,48 @@ function toggleWorkFields() {
     
     if (isWorkday) {
         workFields.style.display = 'block';
+        // Обновляем поля продуктов при переключении на рабочий день
+        updateProductFields();
     } else {
         workFields.style.display = 'none';
         // Обнуляем поля при выборе выходного
         document.getElementById('shift-venue').value = '';
         document.getElementById('shift-payout').value = 0;
         document.getElementById('shift-tips').value = 0;
-        document.querySelectorAll('#products-fields input').forEach(input => {
+        document.querySelectorAll('#product-fields input').forEach(input => {
             input.value = 0;
         });
+        // Очищаем контейнер продуктов
+        const container = document.getElementById('product-fields');
+        if (container) {
+            container.innerHTML = '';
+        }
     }
     
     calculateShiftTotals();
 }
 
 function updateProductFields() {
-    const container = document.getElementById('products-fields');
+    const container = document.getElementById('product-fields');
+    if (!container) {
+        console.error('Контейнер product-fields не найден');
+        return;
+    }
+    
+    console.log('=== ОБНОВЛЕНИЕ ПОЛЕЙ ПРОДУКТОВ ===');
+    console.log('Старое содержимое контейнера:', container.innerHTML);
+    
+    // Сохраняем значения существующих полей перед очисткой
+    const existingValues = {};
+    const existingInputs = container.querySelectorAll('.product-input');
+    existingInputs.forEach(input => {
+        const productId = input.getAttribute('data-product-id');
+        if (productId && input.value) {
+            existingValues[productId] = input.value;
+            console.log(`Сохранено значение ${input.value} для продукта ${productId}`);
+        }
+    });
+    
     container.innerHTML = '';
     
     // Получаем выбранное заведение
@@ -683,6 +810,7 @@ function updateProductFields() {
     
     if (!selectedVenueId) {
         container.innerHTML = '<div class="form-group"><label>Сначала выберите заведение для отображения позиций</label></div>';
+        calculateShiftTotals(); // Пересчитываем при отсутствии заведения
         return;
     }
     
@@ -691,18 +819,64 @@ function updateProductFields() {
     
     if (venueProducts.length === 0) {
         container.innerHTML = '<div class="form-group"><label>У выбранного заведения нет позиций</label></div>';
+        calculateShiftTotals(); // Пересчитываем при отсутствии продуктов
         return;
     }
     
     venueProducts.forEach(product => {
         const fieldGroup = document.createElement('div');
         fieldGroup.className = 'form-group';
+        
+        // Восстанавливаем сохраненное значение или используем 0
+        const savedValue = existingValues[product.id] || '0';
+        
         fieldGroup.innerHTML = `
-            <label>${product.name}:</label>
-            <input type="number" data-product-id="${product.id}" min="0" step="1" value="0" oninput="calculateShiftTotals()">
+            <label>${product.name} (${formatCurrency(product.price_per_unit)}):</label>
+            <input type="number" data-product-id="${product.id}" min="0" step="1" value="${savedValue}" class="product-input" id="product-${product.id}">
         `;
         container.appendChild(fieldGroup);
+        
+        console.log(`Создано поле для продукта ${product.name} с ID: ${product.id}, значение: ${savedValue}`);
+        
+        // Добавляем слушатели событий для автоматического пересчета
+        const input = fieldGroup.querySelector('.product-input');
+        input.addEventListener('input', (e) => {
+            console.log(`Введено значение ${e.target.value} для продукта ${product.name}`);
+            calculateShiftTotals();
+        });
+        input.addEventListener('change', (e) => {
+            console.log(`Изменено значение ${e.target.value} для продукта ${product.name}`);
+            calculateShiftTotals();
+        });
+        
+        // Проверяем количество элементов с таким же data-product-id
+        setTimeout(() => {
+            const allSameId = document.querySelectorAll(`[data-product-id="${product.id}"]`);
+            console.log(`Элементов с data-product-id="${product.id}": ${allSameId.length}`);
+            if (allSameId.length > 1) {
+                console.warn(`⚠️ НАЙДЕНО ${allSameId.length} элементов с одинаковым ID!`, allSameId);
+            }
+        }, 100);
     });
+    
+    // Пересчитываем итоги после обновления полей
+    calculateShiftTotals();
+}
+
+// Функция для принудительного сохранения всех значений полей продуктов
+function saveAllProductValues() {
+    const savedValues = {};
+    const allInputs = document.querySelectorAll('#product-fields .product-input');
+    
+    allInputs.forEach(input => {
+        const productId = input.getAttribute('data-product-id');
+        if (productId) {
+            savedValues[productId] = input.value;
+            console.log(`Принудительно сохранено: ${productId} = ${input.value}`);
+        }
+    });
+    
+    return savedValues;
 }
 
 function updateVenueSelects() {
@@ -724,17 +898,34 @@ function updateVenueSelects() {
             document.getElementById('shift-payout').value = selectedOption.dataset.payout;
         }
         // Обновляем поля продуктов для выбранного заведения
+        console.log('Изменение заведения - обновляем поля продуктов');
         updateProductFields();
         calculateShiftTotals();
     });
+    
+    // Добавляем слушатели для автоматического пересчета при изменении ставки и чаевых
+    const payoutField = document.getElementById('shift-payout');
+    const tipsField = document.getElementById('shift-tips');
+    
+    if (payoutField) {
+        payoutField.addEventListener('input', calculateShiftTotals);
+        payoutField.addEventListener('change', calculateShiftTotals);
+    }
+    
+    if (tipsField) {
+        tipsField.addEventListener('input', calculateShiftTotals);
+        tipsField.addEventListener('change', calculateShiftTotals);
+    }
 }
 
 function calculateShiftTotals() {
-    const isWorkday = document.querySelector('input[name="workday"]:checked').value === 'true';
+    const isWorkday = document.querySelector('input[name="workday"]:checked')?.value === 'true';
+    
+    console.log('Расчет итогов смены. Рабочий день:', isWorkday);
     
     if (!isWorkday) {
-        document.getElementById('shift-revenue').value = formatCurrency(0);
-        document.getElementById('shift-earnings').value = formatCurrency(0);
+        document.getElementById('shift-revenue').value = 0;
+        document.getElementById('shift-earnings').value = 0;
         return;
     }
     
@@ -743,19 +934,40 @@ function calculateShiftTotals() {
     
     // Расчет по продуктам выбранного заведения
     const selectedVenueId = document.getElementById('shift-venue')?.value;
+    console.log('Выбранное заведение:', selectedVenueId);
+    
     if (selectedVenueId) {
         const venueProducts = products.filter(product => product.venue_id === selectedVenueId);
+        console.log('Продукты заведения:', venueProducts);
         
         venueProducts.forEach(product => {
-            const input = document.querySelector(`[data-product-id="${product.id}"]`);
+            // Ищем только внутри модального окна смены, чтобы избежать конфликта с кнопками в настройках
+            const shiftModal = document.getElementById('shift-modal');
+            let input = shiftModal.querySelector(`[data-product-id="${product.id}"]`);
+            
+            // Альтернативный поиск если не найден
+            if (!input) {
+                input = document.getElementById(`product-${product.id}`);
+            }
+            
             if (input) {
                 const quantity = parseInt(input.value) || 0;
-                revenue += quantity * product.price_per_unit;
+                console.log(`Продукт ${product.name}: количество=${quantity}, цена=${product.price_per_unit}, input.value='${input.value}'`);
                 
-                const commission = product.commission_type === 'fixed' 
-                    ? product.commission_value
-                    : product.price_per_unit * (product.commission_value / 100);
-                earnings += quantity * commission;
+                if (quantity > 0) {
+                    const productRevenue = quantity * product.price_per_unit;
+                    revenue += productRevenue;
+                    
+                    const commission = product.commission_type === 'fixed' 
+                        ? product.commission_value
+                        : product.price_per_unit * (product.commission_value / 100);
+                    const productEarnings = quantity * commission;
+                    earnings += productEarnings;
+                    
+                    console.log(`  Выручка: ${productRevenue}, Заработок: ${productEarnings}`);
+                }
+            } else {
+                console.log(`❌ Input не найден для продукта ${product.name} (id: ${product.id})`);
             }
         });
     }
@@ -765,25 +977,102 @@ function calculateShiftTotals() {
     const tips = parseFloat(document.getElementById('shift-tips').value) || 0;
     earnings += payout + tips;
     
-    document.getElementById('shift-revenue').value = formatCurrency(revenue);
-    document.getElementById('shift-earnings').value = formatCurrency(earnings);
+    console.log(`Итоговая выручка: ${revenue}, Итоговый заработок: ${earnings}`);
+    
+    // Сохраняем числовые значения без форматирования для корректной отправки
+    document.getElementById('shift-revenue').value = revenue;
+    document.getElementById('shift-earnings').value = earnings;
+    
+    // Показываем форматированные значения в специальных полях для отображения
+    const revenueDisplay = document.getElementById('shift-revenue-display');
+    const earningsDisplay = document.getElementById('shift-earnings-display');
+    
+    if (revenueDisplay) revenueDisplay.textContent = formatCurrency(revenue);
+    if (earningsDisplay) earningsDisplay.textContent = formatCurrency(earnings);
 }
 
+// Флаг для предотвращения множественных отправок
+let isSubmittingShift = false;
+
 async function handleShiftSubmit(e) {
+    console.log('=== ОБРАБОТЧИК СОХРАНЕНИЯ СМЕНЫ ВЫЗВАН ===');
+    console.log('Event:', e);
+    
     e.preventDefault();
     
-    // Получаем актуального пользователя из Supabase
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (!user || userError || !user.id) {
-        console.error('Ошибка получения пользователя:', userError);
-        showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+    // Защита от множественных нажатий
+    if (isSubmittingShift) {
+        console.log('⚠️ Сохранение уже в процессе, игнорируем повторное нажатие');
         return;
     }
     
-    console.log('Текущий пользователь при добавлении смены:', user.id);
+    isSubmittingShift = true;
+    console.log('🔒 Блокируем повторные нажатия');
+    
+    console.log('preventDefault() выполнен, начинаем сохранение...');
+    
+    // Проверяем форму на валидность
+    const form = e.target;
+    if (!form.checkValidity()) {
+        console.log('❌ Форма не прошла валидацию');
+        form.reportValidity();
+        return;
+    }
+    console.log('✅ Форма прошла валидацию');
+    
+    // Получаем актуального пользователя из Supabase
+    console.log('Получаем текущего пользователя...');
+    
+    try {
+        console.log('Вызываем supabase.auth.getUser()...');
+        const userResult = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут получения пользователя')), 5000))
+        ]);
+        
+        console.log('Результат получения пользователя:', userResult);
+        
+        const { data: { user }, error: userError } = userResult;
+        
+        if (!user || userError || !user.id) {
+            console.error('Ошибка получения пользователя:', userError);
+            showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+            return;
+        }
+        console.log('✅ Пользователь получен:', user.id);
+        
+        // Используем пользователя из глобальной переменной как запасной вариант
+        const actualUser = user || currentUser;
+        if (!actualUser || !actualUser.id) {
+            console.error('Нет доступного пользователя:', { user, currentUser });
+            showMessage('Ошибка', 'Пользователь не найден. Попробуйте перезайти в систему.');
+            return;
+        }
+        
+        console.log('✅ Используем пользователя:', actualUser.id);
+        
+        // Сохраняем пользователя для дальнейшего использования
+        var user = actualUser;
+    } catch (error) {
+        console.error('Критическая ошибка получения пользователя:', error);
+        
+        // Пробуем использовать глобальную переменную currentUser
+        if (currentUser && currentUser.id) {
+            console.log('⚠️ Используем глобальную переменную currentUser:', currentUser.id);
+            var user = currentUser;
+        } else {
+            showMessage('Ошибка', 'Не удалось получить данные пользователя: ' + error.message);
+            isSubmittingShift = false;
+            return;
+        }
+    }
+    
+    // Определяем финального пользователя для использования
+    const finalUser = user;
+    console.log('Текущий пользователь при добавлении смены:', finalUser.id);
     
     const shiftData = {
-        user_id: user.id, // Используем актуального пользователя из Supabase
+        user_id: finalUser.id, // Используем актуального пользователя
         shift_date: document.getElementById('shift-date').value,
         is_workday: document.querySelector('input[name="workday"]:checked').value === 'true',
         venue_id: document.getElementById('shift-venue').value || null,
@@ -801,31 +1090,73 @@ async function handleShiftSubmit(e) {
     if (shiftData.is_workday && shiftData.venue_id) {
         // Работаем только с продуктами выбранного заведения
         const venueProducts = products.filter(product => product.venue_id === shiftData.venue_id);
+        console.log('Продукты для обработки:', venueProducts);
+        console.log('Все доступные продукты:', products);
         
         venueProducts.forEach(product => {
-            const input = document.querySelector(`[data-product-id="${product.id}"]`);
+            // Ищем только внутри модального окна смены, чтобы избежать конфликта с кнопками в настройках
+            const shiftModal = document.getElementById('shift-modal');
+            let input = shiftModal.querySelector(`[data-product-id="${product.id}"]`);
+            
+            if (!input) {
+                // Альтернативный поиск по ID
+                input = document.getElementById(`product-${product.id}`);
+                console.log(`Поиск по ID product-${product.id}:`, input);
+            }
+            
+            if (!input) {
+                // Поиск среди всех input с классом product-input в модальном окне
+                const allInputs = shiftModal.querySelectorAll('.product-input');
+                console.log('Все найденные input.product-input в модальном окне:', allInputs);
+                
+                // Показываем их атрибуты
+                allInputs.forEach((inp, index) => {
+                    console.log(`Input ${index}:`, {
+                        id: inp.id,
+                        'data-product-id': inp.getAttribute('data-product-id'),
+                        value: inp.value,
+                        element: inp
+                    });
+                });
+            }
+            
+            console.log(`Поиск input для продукта ${product.name} (id: ${product.id}):`);
+            console.log('Найденный input:', input);
+            console.log('Значение input:', input?.value);
+            
             const quantity = parseInt(input?.value) || 0;
+            console.log(`Количество для ${product.name}: ${quantity}`);
             
             if (quantity > 0) {
-                revenue += quantity * product.price_per_unit;
+                const productRevenue = quantity * product.price_per_unit;
+                revenue += productRevenue;
                 
                 const commission = product.commission_type === 'fixed' 
                     ? product.commission_value
                     : product.price_per_unit * (product.commission_value / 100);
-                earnings += quantity * commission;
+                const productEarnings = quantity * commission;
+                earnings += productEarnings;
                 
-                shiftProducts.push({
+                const productData = {
                     product_id: product.id,
                     quantity: quantity,
                     price_snapshot: product.price_per_unit,
                     commission_snapshot: commission
-                });
+                };
+                
+                shiftProducts.push(productData);
+                console.log(`Добавлен продукт в смену:`, productData);
             }
         });
+    } else {
+        console.log('Не рабочий день или не выбрано заведение. is_workday:', shiftData.is_workday, 'venue_id:', shiftData.venue_id);
     }
     
     shiftData.revenue_generated = revenue;
     shiftData.earnings = earnings;
+    
+    console.log('Окончательные данные смены:', shiftData);
+    console.log('Продукты для сохранения:', shiftProducts);
     
     try {
         let shiftId;
@@ -901,16 +1232,30 @@ async function handleShiftSubmit(e) {
                 shift_id: shiftId
             }));
             
-            const { error } = await supabase
-                .from('shift_products')
-                .insert(shiftProductsData);
+            console.log('Сохраняем продукты смены:', shiftProductsData);
             
-            if (error) throw error;
+            const { data: savedProducts, error } = await supabase
+                .from('shift_products')
+                .insert(shiftProductsData)
+                .select();
+            
+            if (error) {
+                console.error('Ошибка сохранения продуктов смены:', error);
+                throw error;
+            }
+            
+            console.log('Продукты смены сохранены:', savedProducts);
+        } else {
+            console.log('Нет продуктов для сохранения');
         }
         
+        console.log('✅ СМЕНА УСПЕШНО СОХРАНЕНА! Закрываем модальное окно...');
         closeAllModals();
+        console.log('✅ Обновляем список смен...');
         await loadShifts();
+        console.log('✅ Показываем сообщение об успехе...');
         showMessage('Успех', editingShift ? 'Смена обновлена' : 'Смена добавлена');
+        console.log('✅ ПРОЦЕСС СОХРАНЕНИЯ ЗАВЕРШЕН УСПЕШНО!');
         
     } catch (error) {
         console.error('Ошибка при сохранении смены:', error);
@@ -927,6 +1272,10 @@ async function handleShiftSubmit(e) {
         } else {
             showMessage('Ошибка', error.message || 'Произошла ошибка при сохранении смены');
         }
+    } finally {
+        // Разблокируем повторные нажатия
+        isSubmittingShift = false;
+        console.log('🔓 Разблокировали повторные нажатия');
     }
 }
 
@@ -1560,39 +1909,228 @@ function showMessage(title, text) {
 }
 
 async function debugCurrentUser() {
-    const debugInfo = document.getElementById('debug-info');
-    debugInfo.style.display = 'block';
+    console.log('=== ПОЛНАЯ ДИАГНОСТИКА ===');
     
-    let info = '';
+    // 1. Проверяем текущего пользователя
+    console.log('currentUser переменная:', currentUser);
     
-    // Проверяем текущего пользователя (глобальная переменная)
-    info += `Current User (глобальная переменная): ${currentUser ? 'Есть' : 'НЕТ'}\n`;
-    if (currentUser) {
-        info += `User ID: ${currentUser.id || 'НЕТ ID'}\n`;
-        info += `Email: ${currentUser.email || 'НЕТ EMAIL'}\n`;
-    }
+    // 2. Проверяем сессию
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    console.log('Сессия:', sessionData, 'Ошибка:', sessionError);
     
-    // Проверяем актуального пользователя через новую функцию
-    try {
-        const actualUser = await getCurrentUser();
-        info += `\nАктуальный пользователь (через getCurrentUser): Есть\n`;
-        info += `Actual User ID: ${actualUser.id}\n`;
-        info += `Actual Email: ${actualUser.email}\n`;
+    if (currentUser?.id) {
+        console.log('=== ПРОВЕРКА ДАННЫХ В БД ===');
         
-        // Проверяем соответствие
-        if (currentUser && currentUser.id === actualUser.id) {
-            info += `\n✅ Глобальная переменная соответствует актуальному пользователю`;
-        } else {
-            info += `\n⚠️ Глобальная переменная НЕ соответствует актуальному пользователю`;
+        // 3. Проверяем смены напрямую из БД
+        const { data: shiftsData, error: shiftsError } = await supabase
+            .from('shifts')
+            .select('id, shift_date, venue_id, is_workday, revenue_generated, earnings')
+            .eq('user_id', currentUser.id)
+            .order('shift_date', { ascending: false })
+            .limit(10);
+        console.log('Смены в БД (последние 10):', shiftsData, 'Ошибка:', shiftsError);
+        
+        // 4. Проверяем заведения
+        const { data: venuesData, error: venuesError } = await supabase
+            .from('venues')
+            .select('id, name, user_id')
+            .eq('user_id', currentUser.id);
+        console.log('Заведения в БД:', venuesData, 'Ошибка:', venuesError);
+        
+        // 5. Проверяем связи смен с заведениями
+        if (shiftsData && venuesData) {
+            const shiftsWithVenues = shiftsData.map(shift => {
+                const venue = venuesData.find(v => v.id === shift.venue_id);
+                return {
+                    ...shift,
+                    venue_name: venue?.name || 'НЕТ ЗАВЕДЕНИЯ'
+                };
+            });
+            console.log('Смены с названиями заведений:', shiftsWithVenues);
         }
         
-        info += `\n✅ Пользователь готов для создания записей`;
-    } catch (err) {
-        info += `\nОшибка получения актуального пользователя: ${err.message}`;
-        info += `\n❌ Проблема с авторизацией пользователя`;
+        // 6. Проверяем текущий месяц для фильтрации
+        console.log('Текущий месяц для фильтрации:', currentMonth);
+        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+        console.log('Период фильтрации:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
+        
+        // 7. Проверяем смены за текущий месяц
+        const { data: monthShifts, error: monthError } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+            .lte('shift_date', endOfMonth.toISOString().split('T')[0]);
+        console.log('Смены за текущий месяц:', monthShifts, 'Ошибка:', monthError);
+        
+        // 8. Проверяем структуру таблицы shift_products
+        const { data: shiftProductsStructure, error: structureError } = await supabase
+            .from('shift_products')
+            .select('*')
+            .limit(1);
+        console.log('Структура shift_products:', shiftProductsStructure, 'Ошибка:', structureError);
+        
+        // 9. Проверяем связанные данные shift_products для тестовой смены
+        if (shiftsData && shiftsData.length > 0) {
+            const testShiftId = shiftsData[0].id;
+            const { data: testShiftProducts, error: testError } = await supabase
+                .from('shift_products')
+                .select('*')
+                .eq('shift_id', testShiftId);
+            console.log(`Продукты для смены ${testShiftId}:`, testShiftProducts, 'Ошибка:', testError);
+        }
+        
+        alert('Диагностика завершена. Смотрите консоль браузера (F12)');
+    } else {
+        alert('Пользователь не авторизован или нет ID');
+    }
+}
+
+// Функция для тестирования сохранения продуктов смены
+async function testShiftProducts() {
+    console.log('=== ТЕСТ СОХРАНЕНИЯ ПРОДУКТОВ СМЕНЫ ===');
+    
+    if (!currentUser?.id) {
+        alert('Необходимо войти в систему');
+        return;
     }
     
-    debugInfo.textContent = info;
+    try {
+        // Создаем уникальную тестовую дату (завтра + случайные дни)
+        const testDate = new Date();
+        testDate.setDate(testDate.getDate() + Math.floor(Math.random() * 30) + 1);
+        
+        const testShiftData = {
+            user_id: currentUser.id,
+            shift_date: testDate.toISOString().split('T')[0],
+            is_workday: true,
+            venue_id: venues[0]?.id || null,
+            fixed_payout: 1000,
+            tips: 200,
+            revenue_generated: 5000,
+            earnings: 2000
+        };
+        
+        console.log('Создаем тестовую смену:', testShiftData);
+        
+        const { data: shiftData, error: shiftError } = await supabase
+            .from('shifts')
+            .insert(testShiftData)
+            .select()
+            .single();
+        
+        if (shiftError) {
+            console.error('Ошибка создания тестовой смены:', shiftError);
+            return;
+        }
+        
+        console.log('Тестовая смена создана:', shiftData);
+        
+        // Создаем тестовые продукты смены
+        const testProducts = products.slice(0, 2).map((product, index) => ({
+            shift_id: shiftData.id,
+            product_id: product.id,
+            quantity: index + 1,
+            price_snapshot: product.price_per_unit,
+            commission_snapshot: product.commission_value
+        }));
+        
+        console.log('Создаем тестовые продукты смены:', testProducts);
+        
+        const { data: productsData, error: productsError } = await supabase
+            .from('shift_products')
+            .insert(testProducts)
+            .select();
+        
+        if (productsError) {
+            console.error('Ошибка создания продуктов смены:', productsError);
+        } else {
+            console.log('Продукты смены созданы:', productsData);
+        }
+        
+        // Удаляем тестовую смену
+        await supabase.from('shift_products').delete().eq('shift_id', shiftData.id);
+        await supabase.from('shifts').delete().eq('id', shiftData.id);
+        
+        console.log('Тестовая смена удалена');
+        alert('Тест завершен. Смотрите консоль браузера (F12)');
+        
+    } catch (error) {
+        console.error('Ошибка тестирования:', error);
+        alert('Ошибка тестирования: ' + error.message);
+    }
+}
+
+// Функция для анализа существующих смен и их продуктов
+async function analyzeExistingShifts() {
+    console.log('=== АНАЛИЗ СУЩЕСТВУЮЩИХ СМЕН И ПРОДУКТОВ ===');
+    
+    if (!currentUser?.id) {
+        alert('Необходимо войти в систему');
+        return;
+    }
+    
+    try {
+        // Получаем все смены пользователя
+        const { data: allShifts, error: shiftsError } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('shift_date', { ascending: false })
+            .limit(5);
+        
+        if (shiftsError) {
+            console.error('Ошибка получения смен:', shiftsError);
+            return;
+        }
+        
+        console.log('Последние 5 смен:', allShifts);
+        
+        for (const shift of allShifts) {
+            console.log(`\n--- Анализ смены ${shift.shift_date} ---`);
+            console.log('Данные смены:', shift);
+            
+            // Проверяем продукты для каждой смены
+            const { data: shiftProducts, error: productsError } = await supabase
+                .from('shift_products')
+                .select('*')
+                .eq('shift_id', shift.id);
+            
+            if (productsError) {
+                console.error(`Ошибка получения продуктов для смены ${shift.id}:`, productsError);
+            } else {
+                console.log(`Продукты смены ${shift.shift_date}:`, shiftProducts);
+                console.log(`Количество продуктов: ${shiftProducts.length}`);
+                
+                if (shiftProducts.length === 0) {
+                    console.log('❌ Нет сохраненных продуктов для этой смены');
+                } else {
+                    console.log('✅ Есть сохраненные продукты');
+                    shiftProducts.forEach(product => {
+                        console.log(`  - Продукт ID: ${product.product_id}, Количество: ${product.quantity}, Цена: ${product.price_snapshot}`);
+                    });
+                }
+            }
+        }
+        
+        // Проверяем общую статистику
+        const { data: totalProducts, error: totalError } = await supabase
+            .from('shift_products')
+            .select('shift_id')
+            .in('shift_id', allShifts.map(s => s.id));
+        
+        console.log(`\n=== СТАТИСТИКА ===`);
+        console.log(`Всего смен: ${allShifts.length}`);
+        console.log(`Всего записей продуктов: ${totalProducts?.length || 0}`);
+        console.log(`Смен без продуктов: ${allShifts.length - (totalProducts?.length || 0)}`);
+        
+        alert('Анализ завершен. Смотрите консоль браузера (F12)');
+        
+    } catch (error) {
+        console.error('Ошибка анализа:', error);
+        alert('Ошибка анализа: ' + error.message);
+    }
 }
 
 // Настройка слушателей изменения аутентификации
