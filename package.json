@@ -6,6 +6,10 @@
   "scripts": {
     "start": "npx http-server -p 8080",
     "dev": "npx http-server -p 3000",
+    "test": "node test-node.js",
+    "test:browser": "echo 'Откройте test-runner.html в браузере'",
+    "test:all": "npm run test && npm run test:browser",
+    "test:coverage": "node test-node.js && echo 'Проверьте test-report-node.json для детального отчета'",
     "build": "echo 'Static app - no build needed'",
     "deploy": "vercel --prod"
   },
@@ -15,7 +19,9 @@
     "log", 
     "salary",
     "mobile",
-    "pwa"
+    "pwa",
+    "testing",
+    "automation"
   ],
   "author": "Your Name",
   "license": "MIT",
