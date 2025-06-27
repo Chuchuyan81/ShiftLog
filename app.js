@@ -395,10 +395,14 @@ async function loadProducts() {
     }
     
     try {
+        // Загружаем продукты через заведения пользователя
         const { data, error } = await supabase
-            .from('user_products')
-            .select('*')
-            .eq('user_id', currentUser.id)
+            .from('venue_products')
+            .select(`
+                *,
+                venues!inner(name, user_id)
+            `)
+            .eq('venues.user_id', currentUser.id)
             .order('name');
         
         if (error) throw error;
@@ -434,7 +438,7 @@ async function loadShifts() {
                     quantity,
                     price_snapshot,
                     commission_snapshot,
-                    user_products(name)
+                    venue_products(name)
                 )
             `)
             .eq('user_id', currentUser.id)
@@ -622,17 +626,24 @@ function populateShiftForm(shift) {
     
     toggleWorkFields();
     
-    // Заполняем количества продуктов
-    if (shift.shift_products) {
-        shift.shift_products.forEach(sp => {
-            const input = document.querySelector(`[data-product-id="${sp.user_products.id}"]`);
-            if (input) {
-                input.value = sp.quantity;
-            }
-        });
-    }
+    // Сначала обновляем поля продуктов для выбранного заведения
+    updateProductFields();
     
-    calculateShiftTotals();
+    // Затем заполняем количества продуктов
+    if (shift.shift_products) {
+        // Используем setTimeout чтобы дать время полям создаться
+        setTimeout(() => {
+            shift.shift_products.forEach(sp => {
+                const input = document.querySelector(`[data-product-id="${sp.product_id}"]`);
+                if (input) {
+                    input.value = sp.quantity;
+                }
+            });
+            calculateShiftTotals();
+        }, 100);
+    } else {
+        calculateShiftTotals();
+    }
 }
 
 function resetShiftForm() {
@@ -667,7 +678,23 @@ function updateProductFields() {
     const container = document.getElementById('products-fields');
     container.innerHTML = '';
     
-    products.forEach(product => {
+    // Получаем выбранное заведение
+    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    
+    if (!selectedVenueId) {
+        container.innerHTML = '<div class="form-group"><label>Сначала выберите заведение для отображения позиций</label></div>';
+        return;
+    }
+    
+    // Фильтруем продукты по выбранному заведению
+    const venueProducts = products.filter(product => product.venue_id === selectedVenueId);
+    
+    if (venueProducts.length === 0) {
+        container.innerHTML = '<div class="form-group"><label>У выбранного заведения нет позиций</label></div>';
+        return;
+    }
+    
+    venueProducts.forEach(product => {
         const fieldGroup = document.createElement('div');
         fieldGroup.className = 'form-group';
         fieldGroup.innerHTML = `
@@ -690,13 +717,15 @@ function updateVenueSelects() {
         select.appendChild(option);
     });
     
-    // Автозаполнение ставки при выборе заведения
+    // Автозаполнение ставки при выборе заведения и обновление продуктов
     select.addEventListener('change', (e) => {
         const selectedOption = e.target.options[e.target.selectedIndex];
         if (selectedOption.dataset.payout) {
             document.getElementById('shift-payout').value = selectedOption.dataset.payout;
-            calculateShiftTotals();
         }
+        // Обновляем поля продуктов для выбранного заведения
+        updateProductFields();
+        calculateShiftTotals();
     });
 }
 
@@ -712,19 +741,24 @@ function calculateShiftTotals() {
     let revenue = 0;
     let earnings = 0;
     
-    // Расчет по продуктам
-    products.forEach(product => {
-        const input = document.querySelector(`[data-product-id="${product.id}"]`);
-        if (input) {
-            const quantity = parseInt(input.value) || 0;
-            revenue += quantity * product.price_per_unit;
-            
-            const commission = product.commission_type === 'fixed' 
-                ? product.commission_value
-                : product.price_per_unit * (product.commission_value / 100);
-            earnings += quantity * commission;
-        }
-    });
+    // Расчет по продуктам выбранного заведения
+    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    if (selectedVenueId) {
+        const venueProducts = products.filter(product => product.venue_id === selectedVenueId);
+        
+        venueProducts.forEach(product => {
+            const input = document.querySelector(`[data-product-id="${product.id}"]`);
+            if (input) {
+                const quantity = parseInt(input.value) || 0;
+                revenue += quantity * product.price_per_unit;
+                
+                const commission = product.commission_type === 'fixed' 
+                    ? product.commission_value
+                    : product.price_per_unit * (product.commission_value / 100);
+                earnings += quantity * commission;
+            }
+        });
+    }
     
     // Добавляем фиксированную ставку и чаевые
     const payout = parseFloat(document.getElementById('shift-payout').value) || 0;
@@ -764,8 +798,11 @@ async function handleShiftSubmit(e) {
     let earnings = shiftData.fixed_payout + shiftData.tips;
     const shiftProducts = [];
     
-    if (shiftData.is_workday) {
-        products.forEach(product => {
+    if (shiftData.is_workday && shiftData.venue_id) {
+        // Работаем только с продуктами выбранного заведения
+        const venueProducts = products.filter(product => product.venue_id === shiftData.venue_id);
+        
+        venueProducts.forEach(product => {
             const input = document.querySelector(`[data-product-id="${product.id}"]`);
             const quantity = parseInt(input?.value) || 0;
             
@@ -816,6 +853,36 @@ async function handleShiftSubmit(e) {
                 .delete()
                 .eq('shift_id', shiftId);
         } else {
+            // Создание новой смены - сначала проверяем на дубликаты
+            // Проверяем существование смены с такими же параметрами
+            let query = supabase
+                .from('shifts')
+                .select('id')
+                .eq('user_id', shiftData.user_id)
+                .eq('shift_date', shiftData.shift_date);
+            
+            // Добавляем проверку venue_id только если он указан
+            if (shiftData.venue_id) {
+                query = query.eq('venue_id', shiftData.venue_id);
+            } else {
+                query = query.is('venue_id', null);
+            }
+            
+            const { data: existingShift, error: checkError } = await query.maybeSingle();
+            
+            if (checkError) {
+                console.error('Ошибка проверки существующих смен:', checkError);
+                throw checkError;
+            }
+            
+            if (existingShift) {
+                const errorMessage = shiftData.venue_id 
+                    ? 'Смена для данного заведения на эту дату уже существует. Отредактируйте существующую смену или выберите другую дату.'
+                    : 'Смена на эту дату уже существует. Отредактируйте существующую смену или выберите другую дату.';
+                showMessage('Ошибка', errorMessage);
+                return;
+            }
+            
             // Создаем новую смену
             const { data, error } = await supabase
                 .from('shifts')
@@ -846,7 +913,20 @@ async function handleShiftSubmit(e) {
         showMessage('Успех', editingShift ? 'Смена обновлена' : 'Смена добавлена');
         
     } catch (error) {
-        showMessage('Ошибка', error.message);
+        console.error('Ошибка при сохранении смены:', error);
+        
+        // Обрабатываем специфические ошибки базы данных
+        if (error.message && error.message.includes('unique constraint')) {
+            if (error.message.includes('unique_user_venue_date')) {
+                showMessage('Ошибка', 'Смена для данного заведения на эту дату уже существует. Отредактируйте существующую смену или выберите другую дату.');
+            } else {
+                showMessage('Ошибка', 'Данные нарушают ограничения базы данных. Проверьте правильность заполнения полей.');
+            }
+        } else if (error.message && error.message.includes('not-null constraint')) {
+            showMessage('Ошибка', 'Не заполнены обязательные поля. Проверьте правильность ввода данных.');
+        } else {
+            showMessage('Ошибка', error.message || 'Произошла ошибка при сохранении смены');
+        }
     }
 }
 
@@ -1220,8 +1300,14 @@ async function handleProductSubmit(e) {
         return;
     }
     
+    // Для новой архитектуры нужно выбрать заведение
+    if (!editingProduct) {
+        showMessage('Ошибка', 'Функция добавления продуктов временно недоступна. Продукты теперь привязаны к заведениям. Обратитесь к разработчику.');
+        return;
+    }
+
     const productData = {
-        user_id: user.id, // Используем актуального пользователя из Supabase
+        venue_id: editingProduct.venue_id, // Сохраняем привязку к заведению
         name: productName,
         price_per_unit: productPrice,
         commission_type: commissionType,
@@ -1239,16 +1325,16 @@ async function handleProductSubmit(e) {
                 return;
             }
             
-            const { error } = await supabase
-                .from('user_products')
-                .update(productData)
-                .eq('id', editingProduct.id);
+                    const { error } = await supabase
+            .from('venue_products')
+            .update(productData)
+            .eq('id', editingProduct.id);
             
             if (error) throw error;
         } else {
-            const { error } = await supabase
-                .from('user_products')
-                .insert(productData);
+                    const { error } = await supabase
+            .from('venue_products')
+            .insert(productData);
             
             if (error) throw error;
         }
@@ -1289,7 +1375,7 @@ function confirmDeleteProduct(productId) {
 async function deleteProductById(productId) {
     try {
         const { error } = await supabase
-            .from('user_products')
+            .from('venue_products')
             .delete()
             .eq('id', productId);
         
@@ -1312,7 +1398,7 @@ async function deleteProduct() {
     
     try {
         const { error } = await supabase
-            .from('user_products')
+            .from('venue_products')
             .delete()
             .eq('id', editingProduct.id);
         
@@ -1358,7 +1444,7 @@ function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.user_products?.name || 'Неизвестно';
+                    const productName = sp.venue_products?.name || 'Неизвестно';
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
