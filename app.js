@@ -66,8 +66,15 @@ if (!document.getElementById('product-fields-styles')) {
     document.head.appendChild(style);
 }
 
-// Инициализация приложения
-console.log('Начало загрузки скрипта app.js');
+// Инициализация приложения v2.0.1 - с отображением сумм по позициям
+console.log('Начало загрузки скрипта app.js v2.0.1');
+console.log('🌐 Среда выполнения:', {
+    host: window.location.host,
+    protocol: window.location.protocol,
+    userAgent: navigator.userAgent.substring(0, 100),
+    isLocalhost: window.location.hostname === 'localhost',
+    timestamp: new Date().toISOString()
+});
 
 function initApp() {
     console.log('🚀 Инициализация приложения начата');
@@ -512,16 +519,27 @@ async function loadUserData() {
         console.log('✅ Валюта установлена:', currency);
         
         console.log('🔍 Проверяем соединение с Supabase...');
-        // Простая проверка соединения
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+        console.log('🔑 Supabase Key существует:', !!SUPABASE_ANON_KEY);
+        
+        // Упрощенная проверка соединения с увеличенным таймаутом
         try {
-            const { data, error } = await Promise.race([
-                supabase.from('venues').select('count', { count: 'exact', head: true }).limit(0),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут соединения')), 5000))
-            ]);
-            console.log('✅ Соединение с Supabase работает');
+            const connectionTest = supabase.from('venues').select('id').limit(1);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Таймаут соединения')), 15000) // Увеличен до 15 сек
+            );
+            
+            const { data, error } = await Promise.race([connectionTest, timeoutPromise]);
+            
+            if (error) {
+                console.warn('⚠️ Ошибка проверки соединения, но продолжаем:', error);
+                // Не прерываем работу из-за ошибки соединения, просто логируем
+            } else {
+                console.log('✅ Соединение с Supabase работает, получено записей:', data?.length || 0);
+            }
         } catch (error) {
-            console.error('❌ Проблема с соединением Supabase:', error);
-            throw new Error('Нет соединения с базой данных: ' + error.message);
+            console.warn('⚠️ Проблема с проверкой соединения, но продолжаем:', error);
+            // Не прерываем работу, просто логируем предупреждение
         }
         
         console.log('📊 Начинаем последовательную загрузку данных...');
