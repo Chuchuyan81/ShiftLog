@@ -337,6 +337,21 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Отладка загрузки Supabase
+        console.log('Проверка загрузки Supabase после CDN:', {
+            supabaseExists: !!window.supabase,
+            supabaseType: typeof window.supabase,
+            supabaseCreateClient: !!(window.supabase && window.supabase.createClient)
+        });
+        
+        if (!window.supabase) {
+            console.error('❌ Supabase не загрузился из основного CDN');
+        } else {
+            console.log('✅ Supabase успешно загружен из основного CDN');
+        }
+    </script>
+    <script src="supabase-fallback.js"></script>
     <script src="app.js"></script>
     
     <!-- Регистрация Service Worker для PWA -->

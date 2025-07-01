@@ -31,23 +31,48 @@ let editingProduct = null;
 console.log('Начало загрузки скрипта app.js');
 
 function initApp() {
-    console.log('Инициализация приложения начата');
+    console.log('🚀 Инициализация приложения начата');
+    console.log('📊 Состояние перед инициализацией:', {
+        supabaseExists: !!supabase,
+        currentUser: currentUser,
+        documentReady: document.readyState
+    });
+    
     // Принудительно скрываем все модальные окна при загрузке
     closeAllModals();
+    console.log('✅ Модальные окна закрыты');
+    
+    console.log('🔄 Запуск initializeApp...');
     initializeApp();
+}
+
+// Устанавливаем таймаут для инициализации
+const initTimeout = setTimeout(() => {
+    console.error('⏰ Таймаут инициализации! Принудительно показываем интерфейс');
+    hideLoading();
+    showAuthScreen();
+    showMessage('Предупреждение', 'Загрузка заняла слишком много времени. Возможны проблемы с подключением к интернету.');
+}, 10000); // 10 секунд
+
+function initAppWithTimeout() {
+    clearTimeout(initTimeout);
+    initApp();
 }
 
 if (document.readyState === 'loading') {
     console.log('DOM еще загружается, ждем DOMContentLoaded');
-    document.addEventListener('DOMContentLoaded', initApp);
+    document.addEventListener('DOMContentLoaded', initAppWithTimeout);
 } else {
     console.log('DOM уже загружен, запускаем инициализацию');
-    initApp();
+    initAppWithTimeout();
 }
 
 async function initializeApp() {
+    console.log('🔧 initializeApp запущена');
+    
     // Проверяем наличие Supabase
     if (!supabase) {
+        console.error('❌ Supabase клиент недоступен');
         // Задержка перед показом сообщения, чтобы интерфейс полностью загрузился
         setTimeout(() => {
             showMessage('Ошибка', 'Не удалось подключиться к базе данных. Настройте Supabase.');
@@ -55,21 +80,55 @@ async function initializeApp() {
         return;
     }
 
-    // Проверяем текущую сессию
-    const { data: { session } } = await supabase.auth.getSession();
+    console.log('✅ Supabase клиент доступен, проверяем сессию...');
     
-    if (session) {
-        currentUser = session.user;
-        console.log('Пользователь авторизован:', currentUser.id);
-        await loadUserData();
-        showMainApp();
-    } else {
-        console.log('Пользователь не авторизован');
+    try {
+        // Проверяем текущую сессию
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('📝 Результат проверки сессии:', { session: !!session });
+        
+        if (session) {
+            currentUser = session.user;
+            console.log('✅ Пользователь авторизован:', currentUser.id);
+            console.log('🔄 Загружаем данные пользователя...');
+            
+            // Устанавливаем таймаут для отслеживания зависания на loadUserData
+            const loadTimeout = setTimeout(() => {
+                console.error('⏰ ТАЙМАУТ! loadUserData зависла больше 30 секунд');
+                hideLoading();
+                showMessage('Предупреждение', 'Загрузка данных заняла слишком много времени. Попробуйте обновить страницу.');
+            }, 30000);
+            
+            try {
+                await loadUserData();
+                clearTimeout(loadTimeout);
+                console.log('✅ Данные пользователя загружены, показываем главное приложение');
+                showMainApp();
+            } catch (error) {
+                clearTimeout(loadTimeout);
+                console.error('❌ Ошибка при загрузке данных пользователя:', error);
+                hideLoading();
+                showMessage('Ошибка', 'Не удалось загрузить данные пользователя: ' + error.message);
+                showAuthScreen();
+                return;
+            }
+        } else {
+            console.log('ℹ️ Пользователь не авторизован, показываем экран авторизации');
+            showAuthScreen();
+        }
+
+        console.log('🎯 Скрываем экран загрузки');
+        hideLoading();
+        console.log('🔗 Настраиваем обработчики событий');
+        setupEventListeners();
+        console.log('✅ Инициализация завершена успешно');
+        
+    } catch (error) {
+        console.error('❌ Ошибка при инициализации:', error);
+        showMessage('Ошибка', 'Произошла ошибка при подключении к базе данных: ' + error.message);
+        hideLoading();
         showAuthScreen();
     }
-
-    hideLoading();
-    setupEventListeners();
 }
 
 // Показать/скрыть экраны
@@ -80,7 +139,10 @@ function showLoading() {
 }
 
 function hideLoading() {
+    console.log('🎯 hideLoading вызвана');
+    console.log('🎯 Скрываем экран загрузки...');
     document.getElementById('loading-screen').classList.add('hidden');
+    console.log('✅ Экран загрузки скрыт');
 }
 
 function showAuthScreen() {
@@ -89,9 +151,14 @@ function showAuthScreen() {
 }
 
 function showMainApp() {
+    console.log('🎯 showMainApp вызвана');
+    console.log('🎯 Скрываем экран авторизации...');
     document.getElementById('auth-screen').classList.add('hidden');
+    console.log('🎯 Показываем главное приложение...');
     document.getElementById('main-app').classList.remove('hidden');
+    console.log('🎯 Обновляем отображение месяца...');
     updateMonthDisplay();
+    console.log('✅ showMainApp завершена');
 }
 
 // Настройка обработчиков событий
@@ -291,14 +358,8 @@ function setupModalListeners() {
     document.getElementById('delete-venue').addEventListener('click', deleteVenue);
     document.getElementById('delete-product').addEventListener('click', deleteProduct);
     
-    // Закрытие по клику вне модального окна
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeAllModals();
-            }
-        });
-    });
+    // Закрытие по клику вне модального окна отключено
+    // Модальные окна закрываются только по кнопкам "Сохранить" или "Отмена"
 }
 
 // Аутентификация
@@ -403,94 +464,168 @@ function switchScreen(screenName) {
 
 // Загрузка данных пользователя
 async function loadUserData() {
-    currency = localStorage.getItem('currency') || '₽';
-    document.getElementById('currency-select').value = currency;
+    console.log('🔄 loadUserData начата');
     
-    await Promise.all([
-        loadVenues(),
-        loadProducts(),
-        loadShifts()
-    ]);
+    try {
+        console.log('💰 Загружаем настройки валюты...');
+        currency = localStorage.getItem('currency') || '₽';
+        document.getElementById('currency-select').value = currency;
+        console.log('✅ Валюта установлена:', currency);
+        
+        console.log('🔍 Проверяем соединение с Supabase...');
+        // Простая проверка соединения
+        try {
+            const { data, error } = await Promise.race([
+                supabase.from('venues').select('count', { count: 'exact', head: true }).limit(0),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут соединения')), 5000))
+            ]);
+            console.log('✅ Соединение с Supabase работает');
+        } catch (error) {
+            console.error('❌ Проблема с соединением Supabase:', error);
+            throw new Error('Нет соединения с базой данных: ' + error.message);
+        }
+        
+        console.log('📊 Начинаем последовательную загрузку данных...');
+        // Сначала загружаем venues (products зависят от них)
+        await loadVenues();
+        // Затем параллельно products и shifts
+        await Promise.all([
+            loadProducts(), 
+            loadShifts()
+        ]);
+        console.log('✅ Все данные пользователя загружены успешно');
+        
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке данных пользователя:', error);
+        throw error;
+    }
 }
 
 async function loadVenues() {
+    console.log('🏢 loadVenues начата');
+    
     if (!currentUser || !currentUser.id) {
-        console.error('Пользователь не авторизован');
+        console.error('❌ Пользователь не авторизован для загрузки заведений');
         return;
     }
     
+    console.log('👤 Загружаем заведения для пользователя:', currentUser.id);
+    
     try {
-        const { data, error } = await supabase
+        console.log('🔍 Выполняем запрос к таблице venues...');
+        
+        // Добавляем таймаут для запроса
+        const venuesPromise = supabase
             .from('venues')
             .select('*')
             .eq('user_id', currentUser.id)
             .order('name');
+            
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут запроса venues')), 10000)
+        );
+        
+        const { data, error } = await Promise.race([venuesPromise, timeoutPromise]);
+        
+        console.log('📋 Результат запроса venues:', { data, error });
         
         if (error) throw error;
         venues = data || [];
         
-        // Диагностика: проверяем корректность загруженных данных
-        console.log('Загружено заведений:', venues.length);
+        console.log('✅ Загружено заведений:', venues.length);
         venues.forEach((venue, index) => {
             if (!venue.id || venue.id === 'undefined') {
-                console.error(`Некорректное заведение #${index}:`, venue);
+                console.error(`❌ Некорректное заведение #${index}:`, venue);
             }
         });
         
+        console.log('🔄 Обновляем селекты заведений...');
         updateVenueSelects();
+        console.log('🎨 Рендерим список заведений...');
         renderVenuesList();
+        console.log('✅ loadVenues завершена успешно');
+        
     } catch (error) {
-        console.error('Ошибка загрузки заведений:', error);
+        console.error('❌ Критическая ошибка загрузки заведений:', error);
         showMessage('Ошибка', 'Не удалось загрузить заведения: ' + error.message);
+        throw error; // Пробрасываем ошибку выше
     }
 }
 
 async function loadProducts() {
+    console.log('🛍️ loadProducts начата');
+    
     if (!currentUser || !currentUser.id) {
-        console.error('Пользователь не авторизован');
+        console.error('❌ Пользователь не авторизован для загрузки продуктов');
         return;
     }
     
+    console.log('👤 Загружаем продукты для пользователя:', currentUser.id);
+    
     try {
-        // Загружаем продукты через заведения пользователя
-        const { data, error } = await supabase
+        console.log('🔍 Выполняем упрощенный запрос к таблице venue_products...');
+        
+        // Добавляем таймаут и упрощаем запрос (убираем JOIN)
+        const productsPromise = supabase
             .from('venue_products')
-            .select(`
-                *,
-                venues!inner(name, user_id)
-            `)
-            .eq('venues.user_id', currentUser.id)
+            .select('*')
             .order('name');
+            
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут запроса products')), 10000)
+        );
+        
+        const { data: allProducts, error } = await Promise.race([productsPromise, timeoutPromise]);
+        
+        console.log('📋 Результат запроса products:', { data: allProducts, error });
         
         if (error) throw error;
+        
+        // Фильтруем продукты по заведениям пользователя после загрузки
+        console.log('🔍 Фильтруем продукты по заведениям пользователя...');
+        const userVenueIds = venues.map(v => v.id);
+        const data = allProducts ? allProducts.filter(product => 
+            userVenueIds.includes(product.venue_id)
+        ) : [];
+        
+        console.log('📋 Отфильтрованные продукты:', { count: data.length });
+        
         products = data || [];
         
-        // Диагностика: проверяем корректность загруженных данных
-        console.log('Загружено продуктов:', products.length);  
+        console.log('✅ Загружено продуктов:', products.length);  
         products.forEach((product, index) => {
             if (!product.id || product.id === 'undefined') {
-                console.error(`Некорректный продукт #${index}:`, product);
+                console.error(`❌ Некорректный продукт #${index}:`, product);
             }
         });
         
+        console.log('🎨 Рендерим список продуктов...');
         renderProductsList();
+        console.log('🔄 Обновляем поля продуктов...');
         updateProductFields();
+        console.log('✅ loadProducts завершена успешно');
+        
     } catch (error) {
-        console.error('Ошибка загрузки позиций:', error);
+        console.error('❌ Критическая ошибка загрузки позиций:', error);
         showMessage('Ошибка', 'Не удалось загрузить позиции: ' + error.message);
+        throw error; // Пробрасываем ошибку выше
     }
 }
 
 async function loadShifts() {
+    console.log('📅 loadShifts начата');
+    
     const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
     
-    console.log('Загрузка смен для пользователя:', currentUser?.id);
-    console.log('Период:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
+    console.log('👤 Загрузка смен для пользователя:', currentUser?.id);
+    console.log('📅 Период:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
     
     try {
-        // Сначала попробуем загрузить смены без связанных данных
-        const { data: basicShifts, error: basicError } = await supabase
+        console.log('🔍 Выполняем базовый запрос смен с таймаутом...');
+        
+        // Базовый запрос с таймаутом
+        const basicShiftsPromise = supabase
             .from('shifts')
             .select('*')
             .eq('user_id', currentUser.id)
@@ -498,54 +633,57 @@ async function loadShifts() {
             .lte('shift_date', endOfMonth.toISOString().split('T')[0])
             .order('shift_date');
             
-        console.log('Базовые смены:', basicShifts);
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут запроса shifts')), 10000)
+        );
+        
+        const { data: basicShifts, error: basicError } = await Promise.race([basicShiftsPromise, timeoutPromise]);
+            
+        console.log('📋 Базовые смены:', { count: basicShifts?.length, error: basicError });
         if (basicError) {
-            console.error('Ошибка загрузки базовых смен:', basicError);
+            console.error('❌ Ошибка загрузки базовых смен:', basicError);
             throw basicError;
         }
         
-        // Теперь пробуем с полными данными, исключая venue_products из JOIN
-        const { data, error } = await supabase
-            .from('shifts')
-            .select(`
-                *,
-                venues(name),
-                shift_products(
-                    quantity,
-                    price_snapshot,
-                    commission_snapshot,
-                    product_id
-                )
-            `)
-            .eq('user_id', currentUser.id)
-            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
-            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
-            .order('shift_date');
+        // Используем только базовые данные для ускорения
+        console.log('✅ Используем базовые данные смен (без JOIN)');
+        shifts = basicShifts || [];
+        console.log('📋 Количество смен:', shifts.length);
         
-        console.log('Полные данные смен:', data);
-        if (error) {
-            console.error('Ошибка загрузки полных данных:', error);
-            // Если есть ошибка с JOIN, используем базовые данные
-            shifts = basicShifts || [];
-        } else {
-            shifts = data || [];
-        }
-        
+        console.log('🎨 Рендерим список смен...');
         renderShiftsList();
+        console.log('✅ loadShifts завершена успешно');
+        
     } catch (error) {
-        console.error('Ошибка загрузки смен:', error);
+        console.error('❌ Критическая ошибка загрузки смен:', error);
         showMessage('Ошибка', 'Не удалось загрузить смены: ' + error.message);
+        throw error; // Пробрасываем ошибку выше
     }
 }
 
 // Отображение данных
 function updateMonthDisplay() {
-    const monthNames = [
-        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    const monthText = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
-    document.getElementById('current-month').textContent = monthText;
+    console.log('📅 updateMonthDisplay начата');
+    
+    try {
+        const monthNames = [
+            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+        ];
+        const monthText = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+        
+        console.log('📅 Устанавливаем текст месяца:', monthText);
+        const monthElement = document.getElementById('current-month');
+        if (monthElement) {
+            monthElement.textContent = monthText;
+            console.log('✅ updateMonthDisplay завершена успешно');
+        } else {
+            console.error('❌ Элемент current-month не найден');
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка в updateMonthDisplay:', error);
+    }
 }
 
 function updateReportsMonth() {
@@ -578,8 +716,9 @@ function renderShiftsList() {
         const date = new Date(shift.shift_date);
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
-        // Получаем название заведения
-        const venueName = shift.venues?.name || 'Не указано';
+        // Получаем название заведения из массива venues
+        const venue = venues.find(v => v.id === shift.venue_id);
+        const venueName = venue?.name || 'Не указано';
         
         shiftElement.innerHTML = `
             <div class="table-cell">
@@ -1000,6 +1139,9 @@ async function handleShiftSubmit(e) {
     
     e.preventDefault();
     
+    // Объявляем переменную для пользователя, которая будет использоваться в блоке try-catch
+    let user;
+    
     // Защита от множественных нажатий
     if (isSubmittingShift) {
         console.log('⚠️ Сохранение уже в процессе, игнорируем повторное нажатие');
@@ -1016,6 +1158,7 @@ async function handleShiftSubmit(e) {
     if (!form.checkValidity()) {
         console.log('❌ Форма не прошла валидацию');
         form.reportValidity();
+        isSubmittingShift = false;
         return;
     }
     console.log('✅ Форма прошла валидацию');
@@ -1032,34 +1175,36 @@ async function handleShiftSubmit(e) {
         
         console.log('Результат получения пользователя:', userResult);
         
-        const { data: { user }, error: userError } = userResult;
+        const { data: { user: authUser }, error: userError } = userResult;
         
-        if (!user || userError || !user.id) {
+        if (!authUser || userError || !authUser.id) {
             console.error('Ошибка получения пользователя:', userError);
             showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+            isSubmittingShift = false;
             return;
         }
-        console.log('✅ Пользователь получен:', user.id);
+        console.log('✅ Пользователь получен:', authUser.id);
         
         // Используем пользователя из глобальной переменной как запасной вариант
-        const actualUser = user || currentUser;
+        const actualUser = authUser || currentUser;
         if (!actualUser || !actualUser.id) {
-            console.error('Нет доступного пользователя:', { user, currentUser });
+            console.error('Нет доступного пользователя:', { authUser, currentUser });
             showMessage('Ошибка', 'Пользователь не найден. Попробуйте перезайти в систему.');
+            isSubmittingShift = false;
             return;
         }
         
         console.log('✅ Используем пользователя:', actualUser.id);
         
         // Сохраняем пользователя для дальнейшего использования
-        var user = actualUser;
+        user = actualUser;
     } catch (error) {
         console.error('Критическая ошибка получения пользователя:', error);
         
         // Пробуем использовать глобальную переменную currentUser
         if (currentUser && currentUser.id) {
             console.log('⚠️ Используем глобальную переменную currentUser:', currentUser.id);
-            var user = currentUser;
+            user = currentUser;
         } else {
             showMessage('Ошибка', 'Не удалось получить данные пользователя: ' + error.message);
             isSubmittingShift = false;
