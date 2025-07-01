@@ -27,6 +27,45 @@ let editingShift = null;
 let editingVenue = null;
 let editingProduct = null;
 
+// Добавляем CSS-стили для полей продуктов
+if (!document.getElementById('product-fields-styles')) {
+    const style = document.createElement('style');
+    style.id = 'product-fields-styles';
+    style.textContent = `
+        .product-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        
+        .product-input-group input {
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .product-sum {
+            min-width: 80px;
+            padding: 8px 12px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: 500;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .product-sum.has-value {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #059669;
+            font-weight: 600;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // Инициализация приложения
 console.log('Начало загрузки скрипта app.js');
 
@@ -879,9 +918,13 @@ function populateShiftForm(shift) {
                     input.value = sp.quantity;
                 }
             });
+            // Обновляем суммы продуктов и общие итоги
+            updateAllProductSums();
             calculateShiftTotals();
         }, 100);
     } else {
+        // Обновляем суммы продуктов и общие итоги даже если нет данных о продуктах
+        updateAllProductSums();
         calculateShiftTotals();
     }
 }
@@ -919,6 +962,41 @@ function toggleWorkFields() {
     }
     
     calculateShiftTotals();
+}
+
+// Функция для обновления суммы конкретного продукта
+function updateProductSum(productId, pricePerUnit) {
+    const input = document.getElementById(`product-${productId}`);
+    const sumElement = document.getElementById(`product-sum-${productId}`);
+    
+    if (input && sumElement) {
+        const quantity = parseInt(input.value) || 0;
+        const sum = quantity * pricePerUnit;
+        sumElement.textContent = formatCurrency(sum);
+        
+        // Добавляем/убираем CSS-класс для выделения
+        if (quantity > 0) {
+            sumElement.classList.add('has-value');
+        } else {
+            sumElement.classList.remove('has-value');
+        }
+    }
+}
+
+// Функция для обновления сумм всех продуктов
+function updateAllProductSums() {
+    const allInputs = document.querySelectorAll('#product-fields .product-input');
+    
+    allInputs.forEach(input => {
+        const productId = input.getAttribute('data-product-id');
+        if (productId) {
+            // Находим продукт в массиве products
+            const product = products.find(p => p.id === productId);
+            if (product) {
+                updateProductSum(productId, product.price_per_unit);
+            }
+        }
+    });
 }
 
 function updateProductFields() {
@@ -969,9 +1047,16 @@ function updateProductFields() {
         // Восстанавливаем сохраненное значение или используем 0
         const savedValue = existingValues[product.id] || '0';
         
+        // Рассчитываем начальную сумму
+        const initialQuantity = parseInt(savedValue) || 0;
+        const initialSum = initialQuantity * product.price_per_unit;
+        
         fieldGroup.innerHTML = `
             <label>${product.name} (${formatCurrency(product.price_per_unit)}):</label>
-            <input type="number" data-product-id="${product.id}" min="0" step="1" value="${savedValue}" class="product-input" id="product-${product.id}">
+            <div class="product-input-group">
+                <input type="number" data-product-id="${product.id}" min="0" step="1" value="${savedValue}" class="product-input" id="product-${product.id}" placeholder="Количество">
+                <span class="product-sum" id="product-sum-${product.id}">${formatCurrency(initialSum)}</span>
+            </div>
         `;
         container.appendChild(fieldGroup);
         
@@ -981,10 +1066,12 @@ function updateProductFields() {
         const input = fieldGroup.querySelector('.product-input');
         input.addEventListener('input', (e) => {
             console.log(`Введено значение ${e.target.value} для продукта ${product.name}`);
+            updateProductSum(product.id, product.price_per_unit);
             calculateShiftTotals();
         });
         input.addEventListener('change', (e) => {
             console.log(`Изменено значение ${e.target.value} для продукта ${product.name}`);
+            updateProductSum(product.id, product.price_per_unit);
             calculateShiftTotals();
         });
         
@@ -1000,6 +1087,9 @@ function updateProductFields() {
     
     // Пересчитываем итоги после обновления полей
     calculateShiftTotals();
+    
+    // Обновляем суммы всех продуктов
+    setTimeout(() => updateAllProductSums(), 50);
 }
 
 // Функция для принудительного сохранения всех значений полей продуктов
@@ -1061,6 +1151,9 @@ function calculateShiftTotals() {
     const isWorkday = document.querySelector('input[name="workday"]:checked')?.value === 'true';
     
     console.log('Расчет итогов смены. Рабочий день:', isWorkday);
+    
+    // Обновляем суммы всех продуктов
+    updateAllProductSums();
     
     if (!isWorkday) {
         document.getElementById('shift-revenue').value = 0;
