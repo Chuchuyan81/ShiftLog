@@ -8,8 +8,36 @@ console.log('Проверка загрузки Supabase:', {
     windowSupabaseType: typeof window.supabase
 });
 
-// Создаем клиент Supabase (пользователь должен заменить на свои данные)
-const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// Создаем клиент Supabase с настройкой сессии 2 часа
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+        // Автоматическое обновление токена
+        autoRefreshToken: true,
+        // Сохранение сессии в localStorage
+        persistSession: true,
+        // Обнаружение сессии в URL (для reset password)
+        detectSessionInUrl: true,
+        // Используем PKCE для безопасности
+        flowType: 'pkce',
+        // Интервал обновления токена (1.5 часа = 5400 секунд)
+        refreshThreshold: 5400,
+        // Настройки для JWT токена
+        storage: window.localStorage,
+        storageKey: 'sb-auth-token'
+    },
+    // Дополнительные настройки для стабильности
+    global: {
+        headers: {
+            'X-Client-Info': 'shiftlog-app'
+        }
+    },
+    // Настройки для работы с сетью
+    realtime: {
+        params: {
+            eventsPerSecond: 10
+        }
+    }
+}) : null;
 
 console.log('Клиент Supabase создан:', {
     supabaseExists: !!supabase,
@@ -277,7 +305,7 @@ function setupShiftsListeners() {
     });
     
     // Добавление смены
-    document.getElementById('add-shift-btn').addEventListener('click', () => openShiftModal());
+    document.getElementById('add-shift-btn').addEventListener('click', async () => await openShiftModal());
     
     // Форма смены
     document.getElementById('shift-form').addEventListener('submit', handleShiftSubmit);
@@ -964,7 +992,7 @@ function renderShiftsList() {
         
         const shiftElement = document.createElement('div');
         shiftElement.className = `shift-row ${!shift.is_workday ? 'holiday' : ''}`;
-        shiftElement.onclick = () => editShift(shift);
+        shiftElement.onclick = async () => await editShift(shift);
         
         const date = new Date(shift.shift_date);
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -1079,7 +1107,7 @@ function renderProductsList() {
 }
 
 // Модальные окна для смен
-function openShiftModal(shift = null) {
+async function openShiftModal(shift = null) {
     editingShift = shift;
     const modal = document.getElementById('shift-modal');
     const title = document.getElementById('shift-modal-title');
@@ -1088,7 +1116,8 @@ function openShiftModal(shift = null) {
     if (shift) {
         title.textContent = 'Редактировать смену';
         deleteBtn.classList.remove('hidden');
-        populateShiftForm(shift);
+        console.log('🔄 Загружаем данные смены для редактирования...');
+        await populateShiftForm(shift);
     } else {
         title.textContent = 'Добавить смену';
         deleteBtn.classList.add('hidden');
@@ -1104,13 +1133,15 @@ function openShiftModal(shift = null) {
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
     
-    // Обновляем поля продуктов только один раз при открытии
-    console.log('Открытие модального окна - начальное обновление полей');
-    updateProductFields();
-    calculateShiftTotals(); // Начальный расчет
+    // Для новых смен обновляем поля продуктов
+    if (!shift) {
+        console.log('Открытие модального окна - начальное обновление полей');
+        updateProductFields();
+        calculateShiftTotals(); // Начальный расчет
+    }
 }
 
-function populateShiftForm(shift) {
+async function populateShiftForm(shift) {
     document.getElementById('shift-date').value = shift.shift_date;
     document.querySelector(`input[name="workday"][value="${shift.is_workday}"]`).checked = true;
     document.getElementById('shift-venue').value = shift.venue_id;
@@ -1119,28 +1150,83 @@ function populateShiftForm(shift) {
     
     toggleWorkFields();
     
-    // Сначала обновляем поля продуктов для выбранного заведения
-    updateProductFields();
+    // Сначала обновляем поля продуктов для выбранного заведения (с очисткой значений)
+    console.log('🔄 Обновляем поля продуктов с очисткой для редактирования смены');
+    updateProductFields(true);
     
-    // Затем заполняем количества продуктов
-    if (shift.shift_products) {
-        // Используем setTimeout чтобы дать время полям создаться
-        setTimeout(() => {
-            shift.shift_products.forEach(sp => {
-                const input = document.querySelector(`[data-product-id="${sp.product_id}"]`);
-                if (input) {
-                    input.value = sp.quantity;
-                }
+    // Загружаем данные продуктов смены из базы (только для существующих смен)
+    if (shift.id && shift.id !== 'undefined') {
+        console.log('🔍 Загружаем данные продуктов для смены ID:', shift.id);
+        console.log('🔍 Тип ID смены:', typeof shift.id);
+        
+        try {
+            // Дождемся создания полей продуктов перед загрузкой данных
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            const { data: shiftProducts, error } = await supabase
+                .from('shift_products')
+                .select('*')
+                .eq('shift_id', shift.id);
+                
+            console.log('📋 Результат запроса shift_products:', {
+                data: shiftProducts,
+                error: error,
+                shiftId: shift.id,
+                count: shiftProducts?.length || 0
             });
-            // Обновляем суммы продуктов и общие итоги
-            updateAllProductSums();
-            calculateShiftTotals();
-        }, 100);
+            
+            if (error) {
+                console.error('❌ Ошибка загрузки продуктов смены:', error);
+                return;
+            }
+            
+            // Заполняем количества продуктов (используем только загруженные данные из БД)
+            const productsData = shiftProducts || [];
+            
+            console.log(`📦 Найдено ${productsData.length} продуктов для смены ${shift.id}`);
+            
+            if (productsData.length > 0) {
+                // Заполняем поля количества
+                productsData.forEach(sp => {
+                    const input = document.querySelector(`[data-product-id="${sp.product_id}"]`);
+                    console.log(`🔍 Ищем поле для продукта ${sp.product_id}:`, !!input);
+                    
+                    if (input) {
+                        input.value = sp.quantity;
+                        console.log(`✅ Установлено количество ${sp.quantity} для продукта ${sp.product_id}`);
+                        
+                        // Принудительно запускаем событие change для обновления сумм
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else {
+                        console.warn(`⚠️ Поле для продукта ${sp.product_id} не найдено`);
+                        
+                        // Покажем все доступные поля для отладки
+                        const allInputs = document.querySelectorAll('[data-product-id]');
+                        console.log('Доступные поля продуктов:', Array.from(allInputs).map(i => i.getAttribute('data-product-id')));
+                    }
+                });
+                
+                // Обновляем суммы продуктов и общие итоги
+                setTimeout(() => {
+                    updateAllProductSums();
+                    calculateShiftTotals();
+                }, 100);
+            } else {
+                console.log('📦 Нет сохраненных продуктов для этой смены');
+            }
+            
+        } catch (error) {
+            console.error('❌ Исключение при загрузке продуктов смены:', error);
+        }
     } else {
-        // Обновляем суммы продуктов и общие итоги даже если нет данных о продуктах
+        console.log('⚠️ Смена без ID - не загружаем продукты из БД');
+    }
+    
+    // Обновляем суммы продуктов и общие итоги в любом случае
+    setTimeout(() => {
         updateAllProductSums();
         calculateShiftTotals();
-    }
+    }, 300);
 }
 
 function resetShiftForm() {
@@ -1148,7 +1234,8 @@ function resetShiftForm() {
     document.getElementById('shift-date').value = new Date().toISOString().split('T')[0];
     document.querySelector('input[name="workday"][value="true"]').checked = true;
     toggleWorkFields();
-    updateProductFields();
+    // Очищаем значения полей продуктов при сбросе формы
+    updateProductFields(true);
 }
 
 function toggleWorkFields() {
@@ -1213,7 +1300,7 @@ function updateAllProductSums() {
     });
 }
 
-function updateProductFields() {
+function updateProductFields(clearValues = false) {
     const container = document.getElementById('product-fields');
     if (!container) {
         console.error('Контейнер product-fields не найден');
@@ -1221,18 +1308,23 @@ function updateProductFields() {
     }
     
     console.log('=== ОБНОВЛЕНИЕ ПОЛЕЙ ПРОДУКТОВ ===');
+    console.log('Режим очистки значений:', clearValues);
     console.log('Старое содержимое контейнера:', container.innerHTML);
     
-    // Сохраняем значения существующих полей перед очисткой
+    // Сохраняем значения существующих полей перед очисткой (только если не режим очистки)
     const existingValues = {};
-    const existingInputs = container.querySelectorAll('.product-input');
-    existingInputs.forEach(input => {
-        const productId = input.getAttribute('data-product-id');
-        if (productId && input.value) {
-            existingValues[productId] = input.value;
-            console.log(`Сохранено значение ${input.value} для продукта ${productId}`);
-        }
-    });
+    if (!clearValues) {
+        const existingInputs = container.querySelectorAll('.product-input');
+        existingInputs.forEach(input => {
+            const productId = input.getAttribute('data-product-id');
+            if (productId && input.value) {
+                existingValues[productId] = input.value;
+                console.log(`Сохранено значение ${input.value} для продукта ${productId}`);
+            }
+        });
+    } else {
+        console.log('🔄 Очищаем сохраненные значения полей продуктов');
+    }
     
     container.innerHTML = '';
     
@@ -1731,8 +1823,9 @@ async function handleShiftSubmit(e) {
     }
 }
 
-function editShift(shift) {
-    openShiftModal(shift);
+async function editShift(shift) {
+    console.log('📝 Редактируем смену:', shift.id);
+    await openShiftModal(shift);
 }
 
 async function deleteShift() {
