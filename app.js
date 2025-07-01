@@ -140,23 +140,25 @@ async function initializeApp() {
             
             // Устанавливаем таймаут для отслеживания зависания на loadUserData
             const loadTimeout = setTimeout(() => {
-                console.error('⏰ ТАЙМАУТ! loadUserData зависла больше 30 секунд');
+                console.error('⏰ ТАЙМАУТ! loadUserData зависла больше 45 секунд');
                 hideLoading();
                 showMessage('Предупреждение', 'Загрузка данных заняла слишком много времени. Попробуйте обновить страницу.');
-            }, 30000);
+                showMainApp(); // Все равно показываем приложение
+            }, 45000); // Увеличиваем таймаут до 45 секунд
             
             try {
+                // loadUserData теперь не бросает ошибки, всегда выполняется
                 await loadUserData();
-                clearTimeout(loadTimeout);
-                console.log('✅ Данные пользователя загружены, показываем главное приложение');
-                showMainApp();
+                console.log('✅ loadUserData завершена');
             } catch (error) {
+                // Этот блок теперь не должен выполняться, но оставляем для безопасности
+                console.error('❌ Неожиданная ошибка при загрузке данных пользователя:', error);
+                showMessage('Предупреждение', 'Произошла неожиданная ошибка, но приложение продолжает работать.');
+            } finally {
+                // ГАРАНТИРОВАННО показываем приложение в любом случае
                 clearTimeout(loadTimeout);
-                console.error('❌ Ошибка при загрузке данных пользователя:', error);
-                hideLoading();
-                showMessage('Ошибка', 'Не удалось загрузить данные пользователя: ' + error.message);
-                showAuthScreen();
-                return;
+                console.log('🎯 Показываем главное приложение');
+                showMainApp();
             }
         } else {
             console.log('ℹ️ Пользователь не авторизован, показываем экран авторизации');
@@ -508,6 +510,8 @@ function switchScreen(screenName) {
     }
 }
 
+
+
 // Загрузка данных пользователя
 async function loadUserData() {
     console.log('🔄 loadUserData начата');
@@ -518,43 +522,48 @@ async function loadUserData() {
         document.getElementById('currency-select').value = currency;
         console.log('✅ Валюта установлена:', currency);
         
-        console.log('🔍 Проверяем соединение с Supabase...');
-        console.log('📡 Supabase URL:', SUPABASE_URL);
-        console.log('🔑 Supabase Key существует:', !!SUPABASE_ANON_KEY);
+        // Простая проверка пользователя (без строгих проверок)
+        console.log('🔧 Получаем текущего пользователя...');
+        currentUser = await getCurrentUser();
         
-        // Упрощенная проверка соединения с увеличенным таймаутом
-        try {
-            const connectionTest = supabase.from('venues').select('id').limit(1);
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Таймаут соединения')), 15000) // Увеличен до 15 сек
-            );
-            
-            const { data, error } = await Promise.race([connectionTest, timeoutPromise]);
-            
-            if (error) {
-                console.warn('⚠️ Ошибка проверки соединения, но продолжаем:', error);
-                // Не прерываем работу из-за ошибки соединения, просто логируем
-            } else {
-                console.log('✅ Соединение с Supabase работает, получено записей:', data?.length || 0);
-            }
-        } catch (error) {
-            console.warn('⚠️ Проблема с проверкой соединения, но продолжаем:', error);
-            // Не прерываем работу, просто логируем предупреждение
+        if (!currentUser) {
+            console.error('❌ Пользователь не найден, работаем в режиме ошибки');
+            // НЕ делаем return - продолжаем выполнение для показа интерфейса
+            showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+        } else {
+            console.log('✅ Пользователь найден:', currentUser.id);
         }
         
-        console.log('📊 Начинаем последовательную загрузку данных...');
-        // Сначала загружаем venues (products зависят от них)
-        await loadVenues();
-        // Затем параллельно products и shifts
-        await Promise.all([
-            loadProducts(), 
-            loadShifts()
-        ]);
-        console.log('✅ Все данные пользователя загружены успешно');
+        if (currentUser) {
+            console.log('📊 Начинаем загрузку данных...');
+            
+            // Загружаем venues первыми (products зависят от них)
+            console.log('1️⃣ Загружаем заведения...');
+            await loadVenues();
+            
+            // Затем параллельно products и shifts для скорости
+            console.log('2️⃣ Загружаем продукты и смены параллельно...');
+            await Promise.all([
+                loadProducts(),
+                loadShifts()
+            ]);
+            
+            console.log('✅ Все данные пользователя загружены успешно');
+        } else {
+            console.log('⚠️ Без пользователя - устанавливаем пустые данные');
+            venues = [];
+            products = [];
+            shifts = [];
+        }
         
     } catch (error) {
         console.error('❌ Ошибка при загрузке данных пользователя:', error);
-        throw error;
+        console.log('🔄 Переходим в режим частичной загрузки...');
+        
+        // Показываем предупреждение вместо критической ошибки
+        showMessage('Предупреждение', 'Произошла ошибка при загрузке данных. Приложение работает в ограниченном режиме.');
+        
+        // НЕ бросаем ошибку дальше - позволяем приложению продолжить работу
     }
 }
 
@@ -568,27 +577,95 @@ async function loadVenues() {
     
     console.log('👤 Загружаем заведения для пользователя:', currentUser.id);
     
+    // Диагностика Supabase соединения
+    console.log('🔍 Диагностика Supabase:');
+    console.log('📡 Supabase URL:', supabase?.supabaseUrl || 'не определен');
+    console.log('🔑 Supabase Key:', supabase?.supabaseKey ? 'установлен' : 'не установлен');
+    console.log('⚡ Supabase auth:', supabase?.auth ? 'доступен' : 'недоступен');
+    
+    // Проверка интернет соединения
+    console.log('🌐 Проверяем интернет соединение...');
+    console.log('📱 Online status:', navigator.onLine ? 'подключен' : 'отключен');
+    
+    if (!navigator.onLine) {
+        console.warn('⚠️ Нет интернет соединения');
+        showMessage('Предупреждение', 'Нет интернет соединения. Приложение работает в автономном режиме.');
+        venues = [];
+        updateVenueSelects();
+        renderVenuesList();
+        return;
+    }
+    
     try {
         console.log('🔍 Выполняем запрос к таблице venues...');
         
-        // Добавляем таймаут для запроса
-        const venuesPromise = supabase
-            .from('venues')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('name');
+        // Разумные таймауты
+        const timeoutDuration = window.location.hostname === 'localhost' ? 15000 : 10000;
+        console.log(`⏱️ Используем таймаут: ${timeoutDuration/1000} секунд`);
+        
+        // Пробуем несколько раз с retry
+        let lastError = null;
+        let data = null;
+        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            console.log(`🔄 Попытка ${attempt}/2 загрузки venues...`);
             
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут запроса venues')), 10000)
-        );
+            try {
+                const venuesPromise = supabase
+                    .from('venues')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('name');
+                    
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Таймаут запроса venues (попытка ${attempt})`)), timeoutDuration)
+                );
+                
+                const result = await Promise.race([venuesPromise, timeoutPromise]);
+                
+                if (result.error) {
+                    lastError = result.error;
+                    console.warn(`⚠️ Ошибка в попытке ${attempt}:`, result.error);
+                    if (attempt < 3) {
+                        console.log('⏳ Ждем 2 секунды перед повтором...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        continue;
+                    }
+                } else {
+                    data = result.data;
+                    console.log(`✅ Успех в попытке ${attempt}!`);
+                    break;
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Исключение в попытке ${attempt}:`, error);
+                if (attempt < 3) {
+                    console.log('⏳ Ждем 2 секунды перед повтором...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    continue;
+                }
+            }
+        }
         
-        const { data, error } = await Promise.race([venuesPromise, timeoutPromise]);
+        console.log('📋 Финальный результат venues:', { data, error: lastError });
         
-        console.log('📋 Результат запроса venues:', { data, error });
+        if (lastError) {
+            console.error('❌ Все попытки загрузки venues неудачны:', lastError);
+            console.log('🔄 Переходим в fallback режим без заведений');
+            venues = [];
+            
+            // Показываем предупреждение вместо критической ошибки  
+            showMessage('Предупреждение', 'Не удалось загрузить заведения. Вы можете добавлять смены без указания заведения.');
+            
+            console.log('🔄 Обновляем селекты заведений...');
+            updateVenueSelects();
+            console.log('🎨 Рендерим список заведений...');
+            renderVenuesList();
+            console.log('✅ loadVenues завершена в fallback режиме');
+            return; // Не бросаем ошибку, продолжаем работу
+        }
         
-        if (error) throw error;
         venues = data || [];
-        
         console.log('✅ Загружено заведений:', venues.length);
         venues.forEach((venue, index) => {
             if (!venue.id || venue.id === 'undefined') {
@@ -604,8 +681,17 @@ async function loadVenues() {
         
     } catch (error) {
         console.error('❌ Критическая ошибка загрузки заведений:', error);
-        showMessage('Ошибка', 'Не удалось загрузить заведения: ' + error.message);
-        throw error; // Пробрасываем ошибку выше
+        console.log('🔄 Переходим в критический fallback режим');
+        venues = [];
+        
+        // Показываем предупреждение вместо блокирующей ошибки
+        showMessage('Предупреждение', 'Произошла критическая ошибка при загрузке заведений. Приложение работает в ограниченном режиме.');
+        
+        // Все равно обновляем интерфейс
+        updateVenueSelects();
+        renderVenuesList();
+        console.log('✅ loadVenues завершена в критическом fallback режиме');
+        // НЕ бросаем ошибку - позволяем приложению продолжить работу
     }
 }
 
@@ -622,21 +708,69 @@ async function loadProducts() {
     try {
         console.log('🔍 Выполняем упрощенный запрос к таблице venue_products...');
         
-        // Добавляем таймаут и упрощаем запрос (убираем JOIN)
-        const productsPromise = supabase
-            .from('venue_products')
-            .select('*')
-            .order('name');
+        // Разумные таймауты
+        const timeoutDuration = window.location.hostname === 'localhost' ? 15000 : 10000;
+        console.log(`⏱️ Используем таймаут для products: ${timeoutDuration/1000} секунд`);
+        
+        // Пробуем несколько раз с retry
+        let lastError = null;
+        let allProducts = null;
+        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            console.log(`🔄 Попытка ${attempt}/2 загрузки products...`);
             
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут запроса products')), 10000)
-        );
+            try {
+                const productsPromise = supabase
+                    .from('venue_products')
+                    .select('*')
+                    .order('name');
+                    
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Таймаут запроса products (попытка ${attempt})`)), timeoutDuration)
+                );
+                
+                const result = await Promise.race([productsPromise, timeoutPromise]);
+                
+                if (result.error) {
+                    lastError = result.error;
+                    console.warn(`⚠️ Ошибка в попытке ${attempt}:`, result.error);
+                    if (attempt < 3) {
+                        console.log('⏳ Ждем 2 секунды перед повтором...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        continue;
+                    }
+                } else {
+                    allProducts = result.data;
+                    console.log(`✅ Успех в попытке ${attempt}!`);
+                    break;
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Исключение в попытке ${attempt}:`, error);
+                if (attempt < 3) {
+                    console.log('⏳ Ждем 2 секунды перед повтором...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    continue;
+                }
+            }
+        }
         
-        const { data: allProducts, error } = await Promise.race([productsPromise, timeoutPromise]);
+        console.log('📋 Финальный результат products:', { count: allProducts?.length, error: lastError });
         
-        console.log('📋 Результат запроса products:', { data: allProducts, error });
-        
-        if (error) throw error;
+        if (lastError) {
+            console.error('❌ Все попытки загрузки products неудачны:', lastError);
+            console.log('🔄 Переходим в fallback режим без продуктов');
+            products = [];
+            
+            // Показываем предупреждение вместо критической ошибки  
+            showMessage('Предупреждение', 'Не удалось загрузить позиции. Вы можете создавать позиции в настройках.');
+            
+            console.log('🎨 Рендерим пустой список продуктов...');
+            renderProductsList();
+            updateProductFields();
+            console.log('✅ loadProducts завершена в fallback режиме');
+            return; // Не бросаем ошибку, продолжаем работу
+        }
         
         // Фильтруем продукты по заведениям пользователя после загрузки
         console.log('🔍 Фильтруем продукты по заведениям пользователя...');
@@ -664,8 +798,17 @@ async function loadProducts() {
         
     } catch (error) {
         console.error('❌ Критическая ошибка загрузки позиций:', error);
-        showMessage('Ошибка', 'Не удалось загрузить позиции: ' + error.message);
-        throw error; // Пробрасываем ошибку выше
+        console.log('🔄 Переходим в критический fallback режим для продуктов');
+        products = [];
+        
+        // Показываем предупреждение вместо блокирующей ошибки
+        showMessage('Предупреждение', 'Произошла критическая ошибка при загрузке позиций. Вы можете создавать позиции в настройках.');
+        
+        // Все равно обновляем интерфейс
+        renderProductsList();
+        updateProductFields();
+        console.log('✅ loadProducts завершена в критическом fallback режиме');
+        // НЕ бросаем ошибку - позволяем приложению продолжить работу
     }
 }
 
@@ -681,25 +824,70 @@ async function loadShifts() {
     try {
         console.log('🔍 Выполняем базовый запрос смен с таймаутом...');
         
-        // Базовый запрос с таймаутом
-        const basicShiftsPromise = supabase
-            .from('shifts')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
-            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
-            .order('shift_date');
-            
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут запроса shifts')), 10000)
-        );
+        // Разумные таймауты
+        const timeoutDuration = window.location.hostname === 'localhost' ? 15000 : 10000;
+        console.log(`⏱️ Используем таймаут для shifts: ${timeoutDuration/1000} секунд`);
         
-        const { data: basicShifts, error: basicError } = await Promise.race([basicShiftsPromise, timeoutPromise]);
+        // Пробуем несколько раз с retry
+        let lastError = null;
+        let basicShifts = null;
+        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            console.log(`🔄 Попытка ${attempt}/2 загрузки shifts...`);
             
-        console.log('📋 Базовые смены:', { count: basicShifts?.length, error: basicError });
-        if (basicError) {
-            console.error('❌ Ошибка загрузки базовых смен:', basicError);
-            throw basicError;
+            try {
+                const basicShiftsPromise = supabase
+                    .from('shifts')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+                    .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+                    .order('shift_date');
+                    
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Таймаут запроса shifts (попытка ${attempt})`)), timeoutDuration)
+                );
+                
+                const result = await Promise.race([basicShiftsPromise, timeoutPromise]);
+                
+                if (result.error) {
+                    lastError = result.error;
+                    console.warn(`⚠️ Ошибка в попытке ${attempt}:`, result.error);
+                    if (attempt < 3) {
+                        console.log('⏳ Ждем 2 секунды перед повтором...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        continue;
+                    }
+                } else {
+                    basicShifts = result.data;
+                    console.log(`✅ Успех в попытке ${attempt}!`);
+                    break;
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Исключение в попытке ${attempt}:`, error);
+                if (attempt < 3) {
+                    console.log('⏳ Ждем 2 секунды перед повтором...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    continue;
+                }
+            }
+        }
+        
+        console.log('📋 Финальный результат shifts:', { count: basicShifts?.length, error: lastError });
+        
+        if (lastError) {
+            console.error('❌ Все попытки загрузки shifts неудачны:', lastError);
+            console.log('🔄 Переходим в fallback режим без смен');
+            shifts = [];
+            
+            // Показываем предупреждение вместо критической ошибки  
+            showMessage('Предупреждение', 'Не удалось загрузить смены. Попробуйте обновить страницу.');
+            
+            console.log('🎨 Рендерим пустой список смен...');
+            renderShiftsList();
+            console.log('✅ loadShifts завершена в fallback режиме');
+            return; // Не бросаем ошибку, продолжаем работу
         }
         
         // Используем только базовые данные для ускорения
@@ -713,8 +901,16 @@ async function loadShifts() {
         
     } catch (error) {
         console.error('❌ Критическая ошибка загрузки смен:', error);
-        showMessage('Ошибка', 'Не удалось загрузить смены: ' + error.message);
-        throw error; // Пробрасываем ошибку выше
+        console.log('🔄 Переходим в критический fallback режим для смен');
+        shifts = [];
+        
+        // Показываем предупреждение вместо блокирующей ошибки
+        showMessage('Предупреждение', 'Произошла критическая ошибка при загрузке смен. Попробуйте обновить страницу.');
+        
+        // Все равно обновляем интерфейс
+        renderShiftsList();
+        console.log('✅ loadShifts завершена в критическом fallback режиме');
+        // НЕ бросаем ошибку - позволяем приложению продолжить работу
     }
 }
 
@@ -2113,12 +2309,35 @@ function exportData() {
 
 // Утилиты
 async function getCurrentUser() {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (!user || error || !user.id) {
-        console.error('Ошибка получения пользователя:', error);
-        throw new Error('Сессия устарела. Войдите в систему заново.');
+    try {
+        console.log('🔍 Вызываем supabase.auth.getUser() с таймаутом...');
+        
+        // Добавляем таймаут чтобы не зависать
+        const getUserPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут получения пользователя')), 5000)
+        );
+        
+        const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]);
+        
+        console.log('📋 Результат getUser:', { user: !!user, error });
+        
+        if (error) {
+            console.error('❌ Ошибка получения пользователя:', error);
+            return null;
+        }
+        
+        if (!user || !user.id) {
+            console.warn('⚠️ Пользователь не найден или нет ID');
+            return null;
+        }
+        
+        console.log('✅ Пользователь получен:', user.id);
+        return user;
+    } catch (error) {
+        console.error('❌ Исключение при получении пользователя:', error);
+        return null;
     }
-    return user;
 }
 
 function formatCurrency(amount) {
