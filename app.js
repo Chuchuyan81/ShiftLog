@@ -21,7 +21,7 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
         flowType: 'pkce',
         // Интервал обновления токена (1.5 часа = 5400 секунд)
         refreshThreshold: 5400,
-        // Настройки для JWT токена
+        // Настройки для JWT токена - срок жизни 2 часа
         storage: window.localStorage,
         storageKey: 'sb-auth-token'
     },
@@ -54,6 +54,16 @@ let currency = '₽';
 let editingShift = null;
 let editingVenue = null;
 let editingProduct = null;
+
+// Переменные для управления сессией
+let sessionCheckInterval = null;
+let sessionExpirationTime = null;
+let lastActivityTime = null;
+let isUserActive = true;
+const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 часа в миллисекундах
+const IDLE_TIMEOUT = 60 * 1000; // 1 минута простоя
+const SESSION_CHECK_INTERVAL = 30 * 1000; // Проверка каждые 30 секунд
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'focus'];
 
 // Добавляем CSS-стили для полей продуктов
 if (!document.getElementById('product-fields-styles')) {
@@ -166,6 +176,9 @@ async function initializeApp() {
             console.log('✅ Пользователь авторизован:', currentUser.id);
             console.log('🔄 Загружаем данные пользователя...');
             
+            // Запускаем проверку сессии
+            startSessionCheck();
+            
             // Устанавливаем таймаут для отслеживания зависания на loadUserData
             const loadTimeout = setTimeout(() => {
                 console.error('⏰ ТАЙМАУТ! loadUserData зависла больше 45 секунд');
@@ -205,6 +218,170 @@ async function initializeApp() {
         hideLoading();
         showAuthScreen();
     }
+}
+
+// Функции управления сессией
+function startSessionCheck() {
+    console.log('🔄 Запуск проверки сессии с отслеживанием активности');
+    
+    // Инициализируем время последней активности
+    lastActivityTime = Date.now();
+    isUserActive = true;
+    
+    // Очищаем предыдущий интервал, если он есть
+    if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+    }
+    
+    // Настраиваем отслеживание активности
+    setupActivityTracking();
+    
+    // Запускаем периодическую проверку
+    sessionCheckInterval = setInterval(checkSessionExpiration, SESSION_CHECK_INTERVAL);
+}
+
+function stopSessionCheck() {
+    console.log('🛑 Остановка проверки сессии');
+    
+    if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+        sessionCheckInterval = null;
+    }
+    
+    // Очищаем отслеживание активности
+    removeActivityTracking();
+    
+    sessionExpirationTime = null;
+    lastActivityTime = null;
+    isUserActive = false;
+}
+
+async function checkSessionExpiration() {
+    try {
+        // Проверяем наличие активной сессии
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+            console.log('⚠️ Сессия не найдена, перенаправляем на авторизацию');
+            handleSessionExpired();
+            return;
+        }
+        
+        // Проверяем срок истечения токена
+        const tokenExpiresAt = session.expires_at * 1000; // Конвертируем в миллисекунды
+        const now = Date.now();
+        
+        if (now >= tokenExpiresAt) {
+            console.log('⚠️ Токен истек, перенаправляем на авторизацию');
+            handleSessionExpired();
+            return;
+        }
+        
+        // Проверяем активность пользователя
+        const timeSinceLastActivity = now - lastActivityTime;
+        
+        if (timeSinceLastActivity >= IDLE_TIMEOUT) {
+            // Пользователь неактивен больше минуты
+            if (isUserActive) {
+                console.log('😴 Пользователь неактивен, запускаем отсчет сессии');
+                isUserActive = false;
+                sessionExpirationTime = now + SESSION_DURATION; // Начинаем отсчет с этого момента
+            }
+            
+            // Проверяем истечение сессии после начала отсчета
+            if (sessionExpirationTime && now >= sessionExpirationTime) {
+                console.log('⚠️ Сессия истекла после простоя, перенаправляем на авторизацию');
+                handleSessionExpired();
+                return;
+            }
+            
+            // Если до истечения осталось меньше 5 минут, показываем предупреждение
+            if (sessionExpirationTime) {
+                const timeLeft = sessionExpirationTime - now;
+                if (timeLeft > 0 && timeLeft < 5 * 60 * 1000) {
+                    console.log('⚠️ Сессия истекает через 5 минут');
+                    showMessage('Предупреждение', 'Ваша сессия истекает через 5 минут. Сохраните важные данные.');
+                }
+            }
+        } else {
+            // Пользователь активен, сбрасываем отсчет
+            if (!isUserActive) {
+                console.log('🎯 Пользователь снова активен, сбрасываем отсчет сессии');
+                isUserActive = true;
+                sessionExpirationTime = null;
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка при проверке сессии:', error);
+        handleSessionExpired();
+    }
+}
+
+function handleSessionExpired() {
+    console.log('🔐 Обработка истечения сессии');
+    
+    // Останавливаем проверку сессии
+    stopSessionCheck();
+    
+    // Очищаем данные пользователя
+    currentUser = null;
+    venues = [];
+    products = [];
+    shifts = [];
+    
+    // Выходим из системы
+    if (supabase) {
+        supabase.auth.signOut();
+    }
+    
+    // Показываем экран авторизации
+    showAuthScreen();
+    
+    // Показываем сообщение пользователю
+    showMessage('Сессия истекла', 'Ваша сессия истекла. Войдите в систему заново.');
+}
+
+// Функции отслеживания активности пользователя
+function setupActivityTracking() {
+    console.log('🎯 Настройка отслеживания активности');
+    
+    // Добавляем слушатели для всех событий активности
+    ACTIVITY_EVENTS.forEach(eventName => {
+        document.addEventListener(eventName, handleUserActivity, true);
+    });
+    
+    // Отслеживаем фокус/потерю фокуса окна
+    window.addEventListener('focus', handleUserActivity);
+    window.addEventListener('blur', handleUserInactive);
+}
+
+function removeActivityTracking() {
+    console.log('🛑 Удаление отслеживания активности');
+    
+    // Удаляем слушатели событий активности
+    ACTIVITY_EVENTS.forEach(eventName => {
+        document.removeEventListener(eventName, handleUserActivity, true);
+    });
+    
+    window.removeEventListener('focus', handleUserActivity);
+    window.removeEventListener('blur', handleUserInactive);
+}
+
+function handleUserActivity() {
+    lastActivityTime = Date.now();
+    
+    // Если пользователь был неактивен, отмечаем его как активного
+    if (!isUserActive) {
+        console.log('🎯 Пользователь снова активен');
+        isUserActive = true;
+        sessionExpirationTime = null; // Сбрасываем отсчет сессии
+    }
+}
+
+function handleUserInactive() {
+    console.log('😴 Окно потеряло фокус');
+    // Не изменяем lastActivityTime, чтобы начать отсчет неактивности
 }
 
 // Показать/скрыть экраны
@@ -473,6 +650,10 @@ async function handleAuth(e) {
         
         currentUser = result.data.user;
         console.log('Пользователь после входа:', currentUser.id);
+        
+        // Запускаем проверку сессии
+        startSessionCheck();
+        
         await loadUserData();
         showMainApp();
         
@@ -500,6 +681,12 @@ async function handleForgotPassword() {
 
 async function handleLogout() {
     try {
+        // Останавливаем проверку сессии
+        stopSessionCheck();
+        
+        // Очищаем кэш данных
+        clearDataCache();
+        
         await supabase.auth.signOut();
         currentUser = null;
         venues = [];
@@ -540,9 +727,9 @@ function switchScreen(screenName) {
 
 
 
-// Загрузка данных пользователя
+// Загрузка данных пользователя с оптимизацией для слабого интернета
 async function loadUserData() {
-    console.log('🔄 loadUserData начата');
+    console.log('🔄 loadUserData начата с оптимизацией');
     
     try {
         console.log('💰 Загружаем настройки валюты...');
@@ -556,27 +743,29 @@ async function loadUserData() {
         
         if (!currentUser) {
             console.error('❌ Пользователь не найден, работаем в режиме ошибки');
-            // НЕ делаем return - продолжаем выполнение для показа интерфейса
             showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
         } else {
             console.log('✅ Пользователь найден:', currentUser.id);
         }
         
         if (currentUser) {
-            console.log('📊 Начинаем загрузку данных...');
+            console.log('📊 Начинаем быструю загрузку данных...');
             
-            // Загружаем venues первыми (products зависят от них)
-            console.log('1️⃣ Загружаем заведения...');
-            await loadVenues();
+            // Используем кэшированные данные если доступны
+            loadCachedData();
             
-            // Затем параллельно products и shifts для скорости
-            console.log('2️⃣ Загружаем продукты и смены параллельно...');
-            await Promise.all([
-                loadProducts(),
-                loadShifts()
-            ]);
+            // Загружаем критически важные данные сначала
+            console.log('1️⃣ Приоритетная загрузка заведений...');
+            await loadVenuesOptimized();
             
-            console.log('✅ Все данные пользователя загружены успешно');
+            // Обновляем интерфейс с минимальными данными
+            updateVenueSelects();
+            
+            // Загружаем остальные данные в фоне
+            console.log('2️⃣ Фоновая загрузка продуктов и смен...');
+            loadProductsAndShiftsInBackground();
+            
+            console.log('✅ Быстрая загрузка завершена');
         } else {
             console.log('⚠️ Без пользователя - устанавливаем пустые данные');
             venues = [];
@@ -590,8 +779,196 @@ async function loadUserData() {
         
         // Показываем предупреждение вместо критической ошибки
         showMessage('Предупреждение', 'Произошла ошибка при загрузке данных. Приложение работает в ограниченном режиме.');
+    }
+}
+
+// Функции для оптимизированной загрузки данных
+function loadCachedData() {
+    console.log('📦 Загружаем кэшированные данные...');
+    
+    try {
+        // Загружаем кэшированные заведения
+        const cachedVenues = localStorage.getItem('cached_venues');
+        if (cachedVenues) {
+            venues = JSON.parse(cachedVenues);
+            console.log('✅ Загружено кэшированных заведений:', venues.length);
+        }
         
-        // НЕ бросаем ошибку дальше - позволяем приложению продолжить работу
+        // Загружаем кэшированные продукты
+        const cachedProducts = localStorage.getItem('cached_products');
+        if (cachedProducts) {
+            products = JSON.parse(cachedProducts);
+            console.log('✅ Загружено кэшированных продуктов:', products.length);
+        }
+        
+        // Обновляем интерфейс с кэшированными данными
+        if (venues.length > 0) {
+            updateVenueSelects();
+            renderVenuesList();
+        }
+        
+        if (products.length > 0) {
+            renderProductsList();
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка при загрузке кэшированных данных:', error);
+    }
+}
+
+async function loadVenuesOptimized() {
+    console.log('🏢 Оптимизированная загрузка заведений');
+    
+    if (!currentUser?.id) {
+        console.error('❌ Нет авторизованного пользователя');
+        return;
+    }
+    
+    try {
+        // Короткий таймаут для быстрой загрузки
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут загрузки заведений')), 3000)
+        );
+        
+        const venuesPromise = supabase
+            .from('venues')
+            .select('id, name, user_id') // Загружаем только нужные поля
+            .eq('user_id', currentUser.id)
+            .order('name');
+        
+        const { data, error } = await Promise.race([venuesPromise, timeoutPromise]);
+        
+        if (error) {
+            console.warn('⚠️ Ошибка загрузки заведений:', error);
+            return;
+        }
+        
+        venues = data || [];
+        console.log('✅ Быстро загружено заведений:', venues.length);
+        
+        // Кэшируем данные
+        localStorage.setItem('cached_venues', JSON.stringify(venues));
+        
+        // Обновляем интерфейс
+        updateVenueSelects();
+        renderVenuesList();
+        
+    } catch (error) {
+        console.warn('⚠️ Таймаут или ошибка при загрузке заведений:', error);
+        // Используем кэшированные данные если есть
+        if (venues.length === 0) {
+            loadCachedData();
+        }
+    }
+}
+
+async function loadProductsAndShiftsInBackground() {
+    console.log('🔄 Фоновая загрузка продуктов и смен');
+    
+    // Загружаем с задержкой, чтобы не блокировать интерфейс
+    setTimeout(async () => {
+        try {
+            console.log('📦 Загружаем продукты в фоне...');
+            await loadProductsOptimized();
+            
+            console.log('📅 Загружаем смены в фоне...');
+            await loadShiftsOptimized();
+            
+            console.log('✅ Фоновая загрузка завершена');
+        } catch (error) {
+            console.error('❌ Ошибка фоновой загрузки:', error);
+        }
+    }, 500); // Задержка 500мс
+}
+
+async function loadProductsOptimized() {
+    if (!currentUser?.id) return;
+    
+    try {
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут загрузки продуктов')), 5000)
+        );
+        
+        const productsPromise = supabase
+            .from('user_products')
+            .select('id, name, price_per_unit, commission_type, commission_value, user_id')
+            .eq('user_id', currentUser.id)
+            .order('name')
+            .limit(50); // Ограничиваем количество для быстрой загрузки
+        
+        const { data, error } = await Promise.race([productsPromise, timeoutPromise]);
+        
+        if (!error && data) {
+            products = data;
+            console.log('✅ Загружено продуктов:', products.length);
+            
+            // Кэшируем данные
+            localStorage.setItem('cached_products', JSON.stringify(products));
+            
+            // Обновляем интерфейс
+            renderProductsList();
+            updateProductFields();
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Ошибка загрузки продуктов:', error);
+    }
+}
+
+async function loadShiftsOptimized() {
+    if (!currentUser?.id) return;
+    
+    try {
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Таймаут загрузки смен')), 5000)
+        );
+        
+        // Загружаем только смены за текущий месяц
+        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+        
+        const shiftsPromise = supabase
+            .from('shifts')
+            .select('id, shift_date, is_workday, venue_id, fixed_payout, tips, revenue_generated, earnings, user_id')
+            .eq('user_id', currentUser.id)
+            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+            .order('shift_date', { ascending: false });
+        
+        const { data, error } = await Promise.race([shiftsPromise, timeoutPromise]);
+        
+        if (!error && data) {
+            shifts = data;
+            console.log('✅ Загружено смен за месяц:', shifts.length);
+            
+            // Обновляем интерфейс
+            renderShiftsList();
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Ошибка загрузки смен:', error);
+    }
+}
+
+// Функция для очистки кэша
+function clearDataCache() {
+    console.log('🧹 Очистка кэша данных');
+    localStorage.removeItem('cached_venues');
+    localStorage.removeItem('cached_products');
+}
+
+// Функция для обновления кэша
+function updateDataCache() {
+    try {
+        if (venues.length > 0) {
+            localStorage.setItem('cached_venues', JSON.stringify(venues));
+        }
+        if (products.length > 0) {
+            localStorage.setItem('cached_products', JSON.stringify(products));
+        }
+        console.log('📦 Кэш обновлен');
+    } catch (error) {
+        console.error('❌ Ошибка обновления кэша:', error);
     }
 }
 
@@ -2015,6 +2392,8 @@ async function handleVenueSubmit(e) {
         
         closeAllModals();
         await loadVenues();
+        // Очищаем кэш после изменения заведений
+        clearDataCache();
         showMessage('Успех', editingVenue ? 'Заведение обновлено' : 'Заведение добавлено');
         
     } catch (error) {
@@ -2057,6 +2436,8 @@ async function deleteVenueById(venueId) {
         if (error) throw error;
         
         await loadVenues();
+        // Очищаем кэш после удаления заведения
+        clearDataCache();
         showMessage('Успех', 'Заведение удалено');
         
     } catch (error) {
@@ -2081,6 +2462,8 @@ async function deleteVenue() {
         
         closeAllModals();
         await loadVenues();
+        // Очищаем кэш после удаления заведения
+        clearDataCache();
         showMessage('Успех', 'Заведение удалено');
         
     } catch (error) {
@@ -2235,6 +2618,8 @@ async function handleProductSubmit(e) {
         
         closeAllModals();
         await loadProducts();
+        // Очищаем кэш после изменения продуктов
+        clearDataCache();
         showMessage('Успех', editingProduct ? 'Позиция обновлена' : 'Позиция добавлена');
         
     } catch (error) {
@@ -2276,6 +2661,8 @@ async function deleteProductById(productId) {
         if (error) throw error;
         
         await loadProducts();
+        // Очищаем кэш после удаления продукта
+        clearDataCache();
         showMessage('Успех', 'Позиция удалена');
         
     } catch (error) {
@@ -2300,6 +2687,8 @@ async function deleteProduct() {
         
         closeAllModals();
         await loadProducts();
+        // Очищаем кэш после удаления продукта
+        clearDataCache();
         showMessage('Успех', 'Позиция удалена');
         
     } catch (error) {
@@ -2709,15 +3098,26 @@ if (supabase) {
         if (event === 'SIGNED_IN') {
             currentUser = session.user;
             console.log('Пользователь вошел в систему:', currentUser.id);
+            
+            // Запускаем проверку сессии
+            startSessionCheck();
+            
             await loadUserData();
             showMainApp();
         } else if (event === 'SIGNED_OUT') {
             console.log('Пользователь вышел из системы');
+            
+            // Останавливаем проверку сессии
+            stopSessionCheck();
+            
             currentUser = null;
             venues = [];
             products = [];
             shifts = [];
             showAuthScreen();
+        } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Токен обновлен');
+            // Время истечения сессии теперь управляется логикой активности
         }
     });
 } 
