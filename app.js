@@ -105,7 +105,7 @@ if (!document.getElementById('product-fields-styles')) {
 }
 
 // Инициализация приложения v2.0.1 - с отображением сумм по позициям
-console.log('Начало загрузки скрипта app.js v2.0.1');
+console.log('Начало загрузки скрипта app.js v2.1.0 - Улучшенная обработка таймаутов');
 console.log('🌐 Среда выполнения:', {
     host: window.location.host,
     protocol: window.location.protocol,
@@ -113,6 +113,13 @@ console.log('🌐 Среда выполнения:', {
     isLocalhost: window.location.hostname === 'localhost',
     timestamp: new Date().toISOString()
 });
+
+console.log('🔧 Доступные функции диагностики в консоли:');
+console.log('  • diagnoseConnection() - проверка соединения с Supabase');
+console.log('  • testUserAuth() - тест аутентификации пользователя');
+console.log('  • retryDataLoad() - повторная загрузка данных');
+console.log('  • debugCurrentUser() - отладка текущего пользователя');
+console.log('  • testShiftProducts() - тест сохранения продуктов смены');
 
 function initApp() {
     console.log('🚀 Инициализация приложения начата');
@@ -176,7 +183,7 @@ async function initializeApp() {
             console.log('✅ Пользователь авторизован:', currentUser.id);
             console.log('🔄 Загружаем данные пользователя...');
             
-            // Запускаем проверку сессии
+            // Запускаем проверку сессии только для авторизованных пользователей
             startSessionCheck();
             
             // Устанавливаем таймаут для отслеживания зависания на loadUserData
@@ -203,6 +210,7 @@ async function initializeApp() {
             }
         } else {
             console.log('ℹ️ Пользователь не авторизован, показываем экран авторизации');
+            // НЕ запускаем проверку сессии для неавторизованных пользователей
             showAuthScreen();
         }
 
@@ -262,8 +270,14 @@ async function checkSessionExpiration() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-            console.log('⚠️ Сессия не найдена, перенаправляем на авторизацию');
-            handleSessionExpired();
+            // Если нет сессии, но пользователь был авторизован - значит сессия истекла
+            if (currentUser) {
+                console.log('⚠️ Сессия истекла для авторизованного пользователя');
+                handleSessionExpired();
+            } else {
+                console.log('ℹ️ Нет активной сессии (пользователь не авторизован)');
+                // Не делаем ничего - это нормально для неавторизованного пользователя
+            }
             return;
         }
         
@@ -321,6 +335,9 @@ async function checkSessionExpiration() {
 function handleSessionExpired() {
     console.log('🔐 Обработка истечения сессии');
     
+    // Проверяем, был ли пользователь действительно авторизован
+    const wasUserLoggedIn = currentUser !== null;
+    
     // Останавливаем проверку сессии
     stopSessionCheck();
     
@@ -338,8 +355,10 @@ function handleSessionExpired() {
     // Показываем экран авторизации
     showAuthScreen();
     
-    // Показываем сообщение пользователю
-    showMessage('Сессия истекла', 'Ваша сессия истекла. Войдите в систему заново.');
+    // Показываем сообщение только если пользователь был авторизован
+    if (wasUserLoggedIn) {
+        showMessage('Сессия истекла', 'Ваша сессия истекла. Войдите в систему заново.');
+    }
 }
 
 // Функции отслеживания активности пользователя
@@ -547,6 +566,29 @@ function setupSettingsListeners() {
         }
     };
     
+    // Добавляем глобальные функции для диагностики
+    window.diagnoseConnection = diagnoseConnection;
+    window.testUserAuth = async function() {
+        console.log('=== ТЕСТ АУТЕНТИФИКАЦИИ ПОЛЬЗОВАТЕЛЯ ===');
+        try {
+            const result = await getCurrentUser();
+            console.log('Результат:', result);
+            return result;
+        } catch (error) {
+            console.error('Ошибка:', error);
+            return null;
+        }
+    };
+    window.retryDataLoad = async function() {
+        console.log('=== ПОВТОРНАЯ ЗАГРУЗКА ДАННЫХ ===');
+        if (currentUser) {
+            await loadUserData();
+            console.log('Данные перезагружены');
+        } else {
+            console.log('Нет авторизованного пользователя');
+        }
+    };
+    
     // Добавляем глобальную функцию для теста значений из консоли
     window.testProductValues = function() {
         console.log('=== ТЕСТ ЗНАЧЕНИЙ ПОЛЕЙ ПРОДУКТОВ ===');
@@ -742,8 +784,8 @@ async function loadUserData() {
         currentUser = await getCurrentUser();
         
         if (!currentUser) {
-            console.error('❌ Пользователь не найден, работаем в режиме ошибки');
-            showMessage('Ошибка', 'Сессия устарела. Войдите в систему заново.');
+            console.log('ℹ️ Пользователь не найден - возможно, не авторизован');
+            // НЕ показываем сообщение об ошибке - это нормально для неавторизованного пользователя
         } else {
             console.log('✅ Пользователь найден:', currentUser.id);
         }
@@ -768,6 +810,15 @@ async function loadUserData() {
             console.log('✅ Быстрая загрузка завершена');
         } else {
             console.log('⚠️ Без пользователя - устанавливаем пустые данные');
+            
+            // При отсутствии пользователя запускаем диагностику
+            if (window.location.hostname === 'localhost') {
+                setTimeout(() => {
+                    console.log('🔧 Запуск диагностики через 3 секунды...');
+                    diagnoseConnection();
+                }, 3000);
+            }
+            
             venues = [];
             products = [];
             shifts = [];
@@ -817,47 +868,61 @@ function loadCachedData() {
 }
 
 async function loadVenuesOptimized() {
-    console.log('🏢 Оптимизированная загрузка заведений');
+    console.log('🏢 Оптимизированная загрузка заведений с retry');
     
     if (!currentUser?.id) {
         console.error('❌ Нет авторизованного пользователя');
         return;
     }
     
-    try {
-        // Короткий таймаут для быстрой загрузки
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут загрузки заведений')), 3000)
-        );
-        
-        const venuesPromise = supabase
-            .from('venues')
-            .select('id, name, user_id') // Загружаем только нужные поля
-            .eq('user_id', currentUser.id)
-            .order('name');
-        
-        const { data, error } = await Promise.race([venuesPromise, timeoutPromise]);
-        
-        if (error) {
-            console.warn('⚠️ Ошибка загрузки заведений:', error);
-            return;
-        }
-        
-        venues = data || [];
-        console.log('✅ Быстро загружено заведений:', venues.length);
-        
-        // Кэшируем данные
-        localStorage.setItem('cached_venues', JSON.stringify(venues));
-        
-        // Обновляем интерфейс
-        updateVenueSelects();
-        renderVenuesList();
-        
-    } catch (error) {
-        console.warn('⚠️ Таймаут или ошибка при загрузке заведений:', error);
-        // Используем кэшированные данные если есть
-        if (venues.length === 0) {
-            loadCachedData();
+    const maxRetries = 2;
+    const baseTimeout = 5000; // Увеличиваем базовый таймаут
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const timeout = baseTimeout * Math.pow(1.5, attempt - 1);
+            console.log(`🔄 Загрузка заведений, попытка ${attempt}/${maxRetries}, таймаут: ${timeout}ms`);
+            
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Таймаут загрузки заведений (${timeout}ms)`)), timeout)
+            );
+            
+            const venuesPromise = supabase
+                .from('venues')
+                .select('id, name, user_id, default_fixed_payout') // Загружаем нужные поля
+                .eq('user_id', currentUser.id)
+                .order('name');
+            
+            const { data, error } = await Promise.race([venuesPromise, timeoutPromise]);
+            
+            if (error) {
+                throw error;
+            }
+            
+            venues = data || [];
+            console.log(`✅ Заведения загружены на попытке ${attempt}:`, venues.length);
+            
+            // Кэшируем данные
+            localStorage.setItem('cached_venues', JSON.stringify(venues));
+            
+            // Обновляем интерфейс
+            updateVenueSelects();
+            renderVenuesList();
+            
+            return; // Успешно загружено
+            
+        } catch (error) {
+            if (attempt === maxRetries) {
+                console.warn('⚠️ Не удалось загрузить заведения после всех попыток:', error);
+                // Используем кэшированные данные если есть
+                if (venues.length === 0) {
+                    console.log('📦 Используем кэшированные заведения');
+                    loadCachedData();
+                }
+            } else {
+                console.warn(`⚠️ Попытка ${attempt} загрузки заведений неудачна:`, error.message);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
     }
 }
@@ -884,69 +949,112 @@ async function loadProductsAndShiftsInBackground() {
 async function loadProductsOptimized() {
     if (!currentUser?.id) return;
     
-    try {
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут загрузки продуктов')), 5000)
-        );
-        
-        const productsPromise = supabase
-            .from('user_products')
-            .select('id, name, price_per_unit, commission_type, commission_value, user_id')
-            .eq('user_id', currentUser.id)
-            .order('name')
-            .limit(50); // Ограничиваем количество для быстрой загрузки
-        
-        const { data, error } = await Promise.race([productsPromise, timeoutPromise]);
-        
-        if (!error && data) {
-            products = data;
-            console.log('✅ Загружено продуктов:', products.length);
+    const maxRetries = 2;
+    const baseTimeout = 6000;
+    
+    console.log('📦 Оптимизированная загрузка продуктов с retry');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const timeout = baseTimeout * Math.pow(1.5, attempt - 1);
+            console.log(`🔄 Загрузка продуктов, попытка ${attempt}/${maxRetries}, таймаут: ${timeout}ms`);
             
-            // Кэшируем данные
-            localStorage.setItem('cached_products', JSON.stringify(products));
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Таймаут загрузки продуктов (${timeout}ms)`)), timeout)
+            );
             
-            // Обновляем интерфейс
-            renderProductsList();
-            updateProductFields();
+            const productsPromise = supabase
+                .from('user_products')
+                .select('id, name, price_per_unit, commission_type, commission_value, user_id')
+                .eq('user_id', currentUser.id)
+                .order('name')
+                .limit(100); // Увеличиваем лимит
+            
+            const { data, error } = await Promise.race([productsPromise, timeoutPromise]);
+            
+            if (error) {
+                throw error;
+            }
+            
+            if (data) {
+                products = data;
+                console.log(`✅ Продукты загружены на попытке ${attempt}:`, products.length);
+                
+                // Кэшируем данные
+                localStorage.setItem('cached_products', JSON.stringify(products));
+                
+                // Обновляем интерфейс
+                renderProductsList();
+                updateProductFields();
+                
+                return; // Успешно загружено
+            }
+            
+        } catch (error) {
+            if (attempt === maxRetries) {
+                console.warn('⚠️ Не удалось загрузить продукты после всех попыток:', error);
+            } else {
+                console.warn(`⚠️ Попытка ${attempt} загрузки продуктов неудачна:`, error.message);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
-        
-    } catch (error) {
-        console.warn('⚠️ Ошибка загрузки продуктов:', error);
     }
 }
 
 async function loadShiftsOptimized() {
     if (!currentUser?.id) return;
     
-    try {
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут загрузки смен')), 5000)
-        );
-        
-        // Загружаем только смены за текущий месяц
-        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-        
-        const shiftsPromise = supabase
-            .from('shifts')
-            .select('id, shift_date, is_workday, venue_id, fixed_payout, tips, revenue_generated, earnings, user_id')
-            .eq('user_id', currentUser.id)
-            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
-            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
-            .order('shift_date', { ascending: false });
-        
-        const { data, error } = await Promise.race([shiftsPromise, timeoutPromise]);
-        
-        if (!error && data) {
-            shifts = data;
-            console.log('✅ Загружено смен за месяц:', shifts.length);
+    const maxRetries = 2;
+    const baseTimeout = 7000;
+    
+    console.log('📅 Оптимизированная загрузка смен с retry');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const timeout = baseTimeout * Math.pow(1.5, attempt - 1);
+            console.log(`🔄 Загрузка смен, попытка ${attempt}/${maxRetries}, таймаут: ${timeout}ms`);
             
-            // Обновляем интерфейс
-            renderShiftsList();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Таймаут загрузки смен (${timeout}ms)`)), timeout)
+            );
+            
+            // Загружаем только смены за текущий месяц
+            const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            const shiftsPromise = supabase
+                .from('shifts')
+                .select('id, shift_date, is_workday, venue_id, fixed_payout, tips, revenue_generated, earnings, user_id')
+                .eq('user_id', currentUser.id)
+                .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+                .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+                .order('shift_date', { ascending: false })
+                .limit(50); // Добавляем лимит для оптимизации
+            
+            const { data, error } = await Promise.race([shiftsPromise, timeoutPromise]);
+            
+            if (error) {
+                throw error;
+            }
+            
+            if (data) {
+                shifts = data;
+                console.log(`✅ Смены загружены на попытке ${attempt}:`, shifts.length);
+                
+                // Обновляем интерфейс
+                renderShiftsList();
+                
+                return; // Успешно загружено
+            }
+            
+        } catch (error) {
+            if (attempt === maxRetries) {
+                console.warn('⚠️ Не удалось загрузить смены после всех попыток:', error);
+            } else {
+                console.warn(`⚠️ Попытка ${attempt} загрузки смен неудачна:`, error.message);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
-        
-    } catch (error) {
-        console.warn('⚠️ Ошибка загрузки смен:', error);
     }
 }
 
@@ -969,6 +1077,33 @@ function updateDataCache() {
         console.log('📦 Кэш обновлен');
     } catch (error) {
         console.error('❌ Ошибка обновления кэша:', error);
+    }
+}
+
+// Функция диагностики соединения
+async function diagnoseConnection() {
+    console.log('🔧 Диагностика соединения с Supabase...');
+    
+    // Проверяем основные параметры
+    console.log('📋 Основные параметры:', {
+        onlineStatus: navigator.onLine,
+        supabaseUrl: SUPABASE_URL,
+        hasSupabaseClient: !!supabase,
+        currentUser: !!currentUser,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Простой тест соединения
+    try {
+        const startTime = Date.now();
+        const { data, error } = await supabase.from('venues').select('count').limit(1);
+        const elapsed = Date.now() - startTime;
+        
+        console.log(`✅ Тест соединения успешен (${elapsed}ms):`, { data, error });
+        return { success: true, latency: elapsed };
+    } catch (error) {
+        console.error('❌ Тест соединения неудачен:', error);
+        return { success: false, error: error.message };
     }
 }
 
@@ -2791,35 +2926,81 @@ function exportData() {
 
 // Утилиты
 async function getCurrentUser() {
-    try {
-        console.log('🔍 Вызываем supabase.auth.getUser() с таймаутом...');
-        
-        // Добавляем таймаут чтобы не зависать
-        const getUserPromise = supabase.auth.getUser();
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Таймаут получения пользователя')), 5000)
-        );
-        
-        const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]);
-        
-        console.log('📋 Результат getUser:', { user: !!user, error });
-        
-        if (error) {
-            console.error('❌ Ошибка получения пользователя:', error);
-            return null;
+    const maxRetries = 3;
+    const baseTimeout = 8000; // Увеличиваем базовый таймаут до 8 секунд
+    
+    console.log('🔍 Начинаем получение данных пользователя с retry механизмом...');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const timeout = baseTimeout * Math.pow(1.5, attempt - 1); // Прогрессивный таймаут
+            console.log(`🔄 Попытка ${attempt}/${maxRetries}, таймаут: ${timeout}ms`);
+            
+            const startTime = Date.now();
+            
+            const getUserPromise = supabase.auth.getUser();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Таймаут получения пользователя (${timeout}ms)`)), timeout)
+            );
+            
+            const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]);
+            
+            const elapsed = Date.now() - startTime;
+            console.log(`📋 Запрос пользователя занял ${elapsed}ms`);
+            
+            if (error) {
+                // Различаем реальные ошибки от простого отсутствия авторизации
+                if (error.message.includes('Invalid JWT') || error.message.includes('JWT')) {
+                    console.log('ℹ️ Нет валидного JWT токена (пользователь не авторизован)');
+                    return null; // Не повторяем для ошибок JWT
+                } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+                    console.log('ℹ️ Доступ запрещен (пользователь не авторизован)');
+                    return null; // Не повторяем для ошибок доступа
+                } else {
+                    throw error; // Повторяем для других ошибок
+                }
+            }
+            
+            if (!user || !user.id) {
+                console.log('ℹ️ Пользователь не найден (не авторизован)');
+                return null;
+            }
+            
+            console.log(`✅ Пользователь успешно получен на попытке ${attempt}:`, user.id);
+            return user;
+            
+        } catch (error) {
+            const isTimeout = error.message.includes('Таймаут');
+            const isNetworkError = error.message.includes('NetworkError') || error.message.includes('fetch');
+            
+            if (attempt === maxRetries) {
+                // Последняя попытка
+                if (isTimeout) {
+                    console.error(`⚠️ Превышен максимальный таймаут после ${maxRetries} попыток`);
+                    console.error('💡 Возможные причины: медленное соединение, проблемы с Supabase, блокировка запросов');
+                } else {
+                    console.error('❌ Критическая ошибка при получении пользователя:', error);
+                }
+                return null;
+            } else {
+                // Не последняя попытка
+                const delay = 1000 * attempt; // Задержка между попытками
+                console.warn(`⚠️ Попытка ${attempt} неудачна: ${error.message}`);
+                
+                if (isTimeout || isNetworkError) {
+                    console.log(`⏳ Ждем ${delay}ms перед следующей попыткой...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    // Для неизвестных ошибок не повторяем
+                    console.error('❌ Неизвестная ошибка, прекращаем попытки:', error);
+                    return null;
+                }
+            }
         }
-        
-        if (!user || !user.id) {
-            console.warn('⚠️ Пользователь не найден или нет ID');
-            return null;
-        }
-        
-        console.log('✅ Пользователь получен:', user.id);
-        return user;
-    } catch (error) {
-        console.error('❌ Исключение при получении пользователя:', error);
-        return null;
     }
+    
+    console.error('❌ Не удалось получить пользователя после всех попыток');
+    return null;
 }
 
 function formatCurrency(amount) {
