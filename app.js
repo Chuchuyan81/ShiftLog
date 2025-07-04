@@ -8,36 +8,89 @@ console.log('Проверка загрузки Supabase:', {
     windowSupabaseType: typeof window.supabase
 });
 
-// Создаем клиент Supabase с настройкой сессии 2 часа
-const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-        // Автоматическое обновление токена
-        autoRefreshToken: true,
-        // Сохранение сессии в localStorage
-        persistSession: true,
-        // Обнаружение сессии в URL (для reset password)
-        detectSessionInUrl: true,
-        // Используем PKCE для безопасности
-        flowType: 'pkce',
-        // Интервал обновления токена (1.5 часа = 5400 секунд)
-        refreshThreshold: 5400,
-        // Настройки для JWT токена - срок жизни 2 часа
-        storage: window.localStorage,
-        storageKey: 'sb-auth-token'
-    },
-    // Дополнительные настройки для стабильности
-    global: {
-        headers: {
-            'X-Client-Info': 'shiftlog-app'
-        }
-    },
-    // Настройки для работы с сетью
-    realtime: {
-        params: {
-            eventsPerSecond: 10
+// Создаем клиент Supabase с улучшенной инициализацией
+let supabase = null;
+
+// Функция для создания клиента Supabase с повторными попытками
+async function initSupabaseClient() {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 секунда
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`🔄 Попытка ${attempt}/${maxRetries} создания клиента Supabase...`);
+            
+            if (window.supabase) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: {
+                        autoRefreshToken: true,
+                        persistSession: true,
+                        detectSessionInUrl: true,
+                        flowType: 'pkce',
+                        refreshThreshold: 5400,
+                        storage: window.localStorage,
+                        storageKey: 'sb-auth-token'
+                    },
+                    global: {
+                        headers: {
+                            'X-Client-Info': 'shiftlog-app'
+                        }
+                    },
+                    realtime: {
+                        params: {
+                            eventsPerSecond: 10
+                        }
+                    }
+                });
+                
+                console.log('✅ Supabase клиент создан успешно');
+                return supabase;
+            }
+            
+            console.log(`⚠️ window.supabase недоступен, попытка ${attempt}/${maxRetries}`);
+            
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+            
+        } catch (error) {
+            console.error(`❌ Ошибка создания клиента Supabase на попытке ${attempt}:`, error);
+            
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
         }
     }
-}) : null;
+    
+    // Если не удалось создать клиент, показываем ошибку
+    console.error('❌ Не удалось создать клиент Supabase после всех попыток');
+    return null;
+}
+
+// Инициализируем клиент при загрузке
+if (window.supabase) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: 'pkce',
+            refreshThreshold: 5400,
+            storage: window.localStorage,
+            storageKey: 'sb-auth-token'
+        },
+        global: {
+            headers: {
+                'X-Client-Info': 'shiftlog-app'
+            }
+        },
+        realtime: {
+            params: {
+                eventsPerSecond: 10
+            }
+        }
+    });
+}
 
 console.log('Клиент Supabase создан:', {
     supabaseExists: !!supabase,
@@ -118,8 +171,11 @@ console.log('🔧 Доступные функции диагностики в к
 console.log('  • diagnoseConnection() - проверка соединения с Supabase');
 console.log('  • testUserAuth() - тест аутентификации пользователя');
 console.log('  • retryDataLoad() - повторная загрузка данных');
+console.log('  • refreshUserData() - принудительное обновление всех данных');
 console.log('  • debugCurrentUser() - отладка текущего пользователя');
 console.log('  • testShiftProducts() - тест сохранения продуктов смены');
+console.log('  • checkAppState() - проверка состояния приложения');
+console.log('  • forceReload() - принудительная перезагрузка страницы');
 
 function initApp() {
     console.log('🚀 Инициализация приложения начата');
@@ -161,14 +217,20 @@ if (document.readyState === 'loading') {
 async function initializeApp() {
     console.log('🔧 initializeApp запущена');
     
-    // Проверяем наличие Supabase
+    // Проверяем наличие Supabase клиента
     if (!supabase) {
-        console.error('❌ Supabase клиент недоступен');
-        // Задержка перед показом сообщения, чтобы интерфейс полностью загрузился
-        setTimeout(() => {
-            showMessage('Ошибка', 'Не удалось подключиться к базе данных. Настройте Supabase.');
-        }, 100);
-        return;
+        console.log('⚠️ Supabase клиент недоступен, пытаемся инициализировать...');
+        
+        // Пытаемся создать клиент повторно
+        supabase = await initSupabaseClient();
+        
+        if (!supabase) {
+            console.error('❌ Не удалось создать клиент Supabase');
+            hideLoading();
+            showMessage('Ошибка', 'Не удалось подключиться к базе данных. Проверьте интернет-соединение.');
+            showAuthScreen();
+            return;
+        }
     }
 
     console.log('✅ Supabase клиент доступен, проверяем сессию...');
@@ -181,49 +243,48 @@ async function initializeApp() {
         if (session) {
             currentUser = session.user;
             console.log('✅ Пользователь авторизован:', currentUser.id);
-            console.log('🔄 Загружаем данные пользователя...');
             
             // Запускаем проверку сессии только для авторизованных пользователей
             startSessionCheck();
             
-            // Устанавливаем таймаут для отслеживания зависания на loadUserData
+            // Загружаем данные пользователя с таймаутом
+            console.log('🔄 Загружаем данные пользователя...');
             const loadTimeout = setTimeout(() => {
-                console.error('⏰ ТАЙМАУТ! loadUserData зависла больше 45 секунд');
+                console.error('⏰ ТАЙМАУТ! Загрузка данных заняла слишком много времени');
                 hideLoading();
-                showMessage('Предупреждение', 'Загрузка данных заняла слишком много времени. Попробуйте обновить страницу.');
-                showMainApp(); // Все равно показываем приложение
-            }, 45000); // Увеличиваем таймаут до 45 секунд
+                showMainApp();
+                showMessage('Предупреждение', 'Загрузка данных заняла слишком много времени. Некоторые данные могут быть недоступны.');
+            }, 30000); // 30 секунд таймаут
             
             try {
-                // loadUserData теперь не бросает ошибки, всегда выполняется
                 await loadUserData();
-                console.log('✅ loadUserData завершена');
+                console.log('✅ Данные пользователя загружены');
             } catch (error) {
-                // Этот блок теперь не должен выполняться, но оставляем для безопасности
-                console.error('❌ Неожиданная ошибка при загрузке данных пользователя:', error);
-                showMessage('Предупреждение', 'Произошла неожиданная ошибка, но приложение продолжает работать.');
+                console.error('❌ Ошибка при загрузке данных пользователя:', error);
+                showMessage('Предупреждение', 'Произошла ошибка при загрузке данных. Приложение работает в ограниченном режиме.');
             } finally {
-                // ГАРАНТИРОВАННО показываем приложение в любом случае
                 clearTimeout(loadTimeout);
-                console.log('🎯 Показываем главное приложение');
-                showMainApp();
             }
+            
+            // Скрываем загрузку и показываем основное приложение
+            hideLoading();
+            showMainApp();
+            
         } else {
-            console.log('ℹ️ Пользователь не авторизован, показываем экран авторизации');
-            // НЕ запускаем проверку сессии для неавторизованных пользователей
+            console.log('ℹ️ Пользователь не авторизован');
+            // Скрываем загрузку и показываем экран авторизации
+            hideLoading();
             showAuthScreen();
         }
 
-        console.log('🎯 Скрываем экран загрузки');
-        hideLoading();
         console.log('🔗 Настраиваем обработчики событий');
         setupEventListeners();
         console.log('✅ Инициализация завершена успешно');
         
     } catch (error) {
         console.error('❌ Ошибка при инициализации:', error);
-        showMessage('Ошибка', 'Произошла ошибка при подключении к базе данных: ' + error.message);
         hideLoading();
+        showMessage('Ошибка', 'Произошла ошибка при инициализации приложения: ' + error.message);
         showAuthScreen();
     }
 }
@@ -582,7 +643,7 @@ function setupSettingsListeners() {
     window.retryDataLoad = async function() {
         console.log('=== ПОВТОРНАЯ ЗАГРУЗКА ДАННЫХ ===');
         if (currentUser) {
-            await loadUserData();
+            await refreshUserData();
             console.log('Данные перезагружены');
         } else {
             console.log('Нет авторизованного пользователя');
@@ -771,7 +832,7 @@ function switchScreen(screenName) {
 
 // Загрузка данных пользователя с оптимизацией для слабого интернета
 async function loadUserData() {
-    console.log('🔄 loadUserData начата с оптимизацией');
+    console.log('🔄 loadUserData начата с улучшенной загрузкой');
     
     try {
         console.log('💰 Загружаем настройки валюты...');
@@ -779,56 +840,36 @@ async function loadUserData() {
         document.getElementById('currency-select').value = currency;
         console.log('✅ Валюта установлена:', currency);
         
-        // Простая проверка пользователя (без строгих проверок)
+        // Проверяем текущего пользователя
         console.log('🔧 Получаем текущего пользователя...');
         currentUser = await getCurrentUser();
         
         if (!currentUser) {
-            console.log('ℹ️ Пользователь не найден - возможно, не авторизован');
-            // НЕ показываем сообщение об ошибке - это нормально для неавторизованного пользователя
-        } else {
-            console.log('✅ Пользователь найден:', currentUser.id);
+            console.log('ℹ️ Пользователь не найден');
+            return;
         }
         
-        if (currentUser) {
-            console.log('📊 Начинаем быструю загрузку данных...');
-            
-            // Используем кэшированные данные если доступны
-            loadCachedData();
-            
-            // Загружаем критически важные данные сначала
-            console.log('1️⃣ Приоритетная загрузка заведений...');
-            await loadVenuesOptimized();
-            
-            // Обновляем интерфейс с минимальными данными
-            updateVenueSelects();
-            
-            // Загружаем остальные данные в фоне
-            console.log('2️⃣ Фоновая загрузка продуктов и смен...');
-            loadProductsAndShiftsInBackground();
-            
-            console.log('✅ Быстрая загрузка завершена');
-        } else {
-            console.log('⚠️ Без пользователя - устанавливаем пустые данные');
-            
-            // При отсутствии пользователя запускаем диагностику
-            if (window.location.hostname === 'localhost') {
-                setTimeout(() => {
-                    console.log('🔧 Запуск диагностики через 3 секунды...');
-                    diagnoseConnection();
-                }, 3000);
-            }
-            
-            venues = [];
-            products = [];
-            shifts = [];
-        }
+        console.log('✅ Пользователь найден:', currentUser.id);
+        
+        // Используем кэшированные данные если доступны
+        loadCachedData();
+        
+        // Загружаем критически важные данные последовательно
+        console.log('1️⃣ Загружаем заведения...');
+        await loadVenuesOptimized();
+        updateVenueSelects();
+        
+        console.log('2️⃣ Загружаем продукты...');
+        await loadProductsOptimized();
+        
+        console.log('3️⃣ Загружаем смены...');
+        await loadShiftsOptimized();
+        
+        console.log('✅ Все данные загружены успешно');
         
     } catch (error) {
         console.error('❌ Ошибка при загрузке данных пользователя:', error);
-        console.log('🔄 Переходим в режим частичной загрузки...');
-        
-        // Показываем предупреждение вместо критической ошибки
+        // Показываем предупреждение, но не прерываем работу
         showMessage('Предупреждение', 'Произошла ошибка при загрузке данных. Приложение работает в ограниченном режиме.');
     }
 }
@@ -1002,25 +1043,36 @@ async function loadProductsOptimized() {
 }
 
 async function loadShiftsOptimized() {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+        console.log('⚠️ Нет авторизованного пользователя для загрузки смен');
+        return;
+    }
     
-    const maxRetries = 2;
-    const baseTimeout = 7000;
+    const maxRetries = 3;
+    const baseTimeout = 8000; // Увеличиваем базовый таймаут
     
-    console.log('📅 Оптимизированная загрузка смен с retry');
+    console.log('📅 Загружаем смены с оптимизацией и retry');
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const timeout = baseTimeout * Math.pow(1.5, attempt - 1);
+            const timeout = baseTimeout * Math.pow(1.2, attempt - 1);
             console.log(`🔄 Загрузка смен, попытка ${attempt}/${maxRetries}, таймаут: ${timeout}ms`);
+            
+            // Используем более широкий диапазон дат для гарантированной загрузки
+            const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            // Добавляем диагностику параметров запроса
+            console.log('📋 Параметры запроса смен:', {
+                userId: currentUser.id,
+                startDate: startOfMonth.toISOString().split('T')[0],
+                endDate: endOfMonth.toISOString().split('T')[0],
+                currentMonth: currentMonth.toISOString().split('T')[0]
+            });
             
             const timeoutPromise = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error(`Таймаут загрузки смен (${timeout}ms)`)), timeout)
             );
-            
-            // Загружаем только смены за текущий месяц
-            const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-            const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
             
             const shiftsPromise = supabase
                 .from('shifts')
@@ -1028,8 +1080,7 @@ async function loadShiftsOptimized() {
                 .eq('user_id', currentUser.id)
                 .gte('shift_date', startOfMonth.toISOString().split('T')[0])
                 .lte('shift_date', endOfMonth.toISOString().split('T')[0])
-                .order('shift_date', { ascending: false })
-                .limit(50); // Добавляем лимит для оптимизации
+                .order('shift_date', { ascending: false });
             
             const { data, error } = await Promise.race([shiftsPromise, timeoutPromise]);
             
@@ -1037,21 +1088,34 @@ async function loadShiftsOptimized() {
                 throw error;
             }
             
-            if (data) {
-                shifts = data;
-                console.log(`✅ Смены загружены на попытке ${attempt}:`, shifts.length);
-                
-                // Обновляем интерфейс
-                renderShiftsList();
-                
-                return; // Успешно загружено
+            shifts = data || [];
+            console.log(`✅ Смены загружены на попытке ${attempt}:`, shifts.length);
+            
+            // Немедленно обновляем интерфейс
+            renderShiftsList();
+            
+            // Если смен нет, показываем информативное сообщение
+            if (shifts.length === 0) {
+                console.log('ℹ️ Нет смен за текущий месяц');
+                const monthName = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+                showMessage('Информация', `Нет смен за ${monthName}. Добавьте первую смену!`);
             }
             
+            return; // Успешно загружено
+            
         } catch (error) {
+            console.warn(`⚠️ Попытка ${attempt} загрузки смен неудачна:`, error.message);
+            
             if (attempt === maxRetries) {
-                console.warn('⚠️ Не удалось загрузить смены после всех попыток:', error);
+                console.error('❌ Не удалось загрузить смены после всех попыток:', error);
+                
+                // Показываем пустой список с информативным сообщением
+                shifts = [];
+                renderShiftsList();
+                
+                showMessage('Предупреждение', 'Не удалось загрузить смены. Проверьте интернет-соединение.');
             } else {
-                console.warn(`⚠️ Попытка ${attempt} загрузки смен неудачна:`, error.message);
+                // Задержка перед следующей попыткой
                 await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
         }
@@ -1492,15 +1556,26 @@ function renderShiftsList() {
     const container = document.getElementById('shifts-list');
     container.innerHTML = '';
     
-    console.log('Отображение смен:', shifts);
+    console.log('🎨 Отображение смен:', { count: shifts.length, currentUser: !!currentUser });
+    
+    if (!currentUser) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6b7280;">Войдите в систему для просмотра смен</div>';
+        return;
+    }
     
     if (shifts.length === 0) {
-        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6b7280;">Нет данных за выбранный месяц</div>';
+        const monthName = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+        container.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #6b7280;">
+                <div style="font-size: 18px; margin-bottom: 10px;">📅 Нет смен за ${monthName}</div>
+                <div style="font-size: 14px; color: #9ca3af;">Добавьте первую смену, нажав кнопку "Добавить смену"</div>
+            </div>
+        `;
         return;
     }
     
     shifts.forEach(shift => {
-        console.log('Отображаем смену:', shift);
+        console.log('🎯 Отображаем смену:', shift);
         
         const shiftElement = document.createElement('div');
         shiftElement.className = `shift-row ${!shift.is_workday ? 'holiday' : ''}`;
@@ -2308,7 +2383,7 @@ async function handleShiftSubmit(e) {
         console.log('✅ СМЕНА УСПЕШНО СОХРАНЕНА! Закрываем модальное окно...');
         closeAllModals();
         console.log('✅ Обновляем список смен...');
-        await loadShifts();
+        await loadShiftsOptimized();
         console.log('✅ Показываем сообщение об успехе...');
         showMessage('Успех', editingShift ? 'Смена обновлена' : 'Смена добавлена');
         console.log('✅ ПРОЦЕСС СОХРАНЕНИЯ ЗАВЕРШЕН УСПЕШНО!');
@@ -2356,7 +2431,7 @@ async function deleteShift() {
         if (error) throw error;
         
         closeAllModals();
-        await loadShifts();
+        await loadShiftsOptimized();
         showMessage('Успех', 'Смена удалена');
         
     } catch (error) {
@@ -3302,3 +3377,87 @@ if (supabase) {
         }
     });
 } 
+
+
+
+// Функция для очистки кэша
+function clearDataCache() {
+    console.log('🧹 Очистка кэша данных');
+    localStorage.removeItem('cached_venues');
+    localStorage.removeItem('cached_products');
+}
+
+// Добавляем улучшенные глобальные функции для диагностики
+window.diagnoseConnection = diagnoseConnection;
+window.refreshUserData = refreshUserData;
+window.testUserAuth = async function() {
+    console.log('=== ТЕСТ АУТЕНТИФИКАЦИИ ПОЛЬЗОВАТЕЛЯ ===');
+    try {
+        const result = await getCurrentUser();
+        console.log('Результат:', result);
+        return result;
+    } catch (error) {
+        console.error('Ошибка:', error);
+        return null;
+    }
+};
+
+window.retryDataLoad = async function() {
+    console.log('=== ПОВТОРНАЯ ЗАГРУЗКА ДАННЫХ ===');
+    if (currentUser) {
+        await refreshUserData();
+        console.log('Данные перезагружены');
+    } else {
+        console.log('Нет авторизованного пользователя');
+    }
+};
+
+window.forceReload = function() {
+    console.log('=== ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА СТРАНИЦЫ ===');
+    localStorage.removeItem('cached_venues');
+    localStorage.removeItem('cached_products');
+    location.reload();
+};
+
+window.checkAppState = function() {
+    console.log('=== СОСТОЯНИЕ ПРИЛОЖЕНИЯ ===');
+    console.log('Пользователь:', currentUser);
+    console.log('Заведения:', venues.length);
+    console.log('Продукты:', products.length);
+    console.log('Смены:', shifts.length);
+    console.log('Текущий месяц:', currentMonth);
+    console.log('Supabase клиент:', !!supabase);
+    console.log('Экран загрузки скрыт:', document.getElementById('loading-screen').classList.contains('hidden'));
+    console.log('Главное приложение показано:', !document.getElementById('main-app').classList.contains('hidden'));
+};
+
+// Функция для принудительного обновления данных
+async function refreshUserData() {
+    console.log('🔄 Принудительное обновление данных пользователя...');
+    
+    if (!currentUser?.id) {
+        console.log('⚠️ Нет авторизованного пользователя для обновления данных');
+        return;
+    }
+    
+    try {
+        // Очищаем кэш
+        clearDataCache();
+        
+        // Перезагружаем данные
+        await loadVenuesOptimized();
+        await loadProductsOptimized();
+        await loadShiftsOptimized();
+        
+        // Обновляем интерфейс
+        updateVenueSelects();
+        renderVenuesList();
+        renderProductsList();
+        
+        console.log('✅ Данные обновлены успешно');
+        
+    } catch (error) {
+        console.error('❌ Ошибка при обновлении данных:', error);
+        showMessage('Ошибка', 'Не удалось обновить данные. Попробуйте еще раз.');
+    }
+}
