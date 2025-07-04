@@ -2,6 +2,80 @@
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
 
+// ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
+console.log('🆘 Создаем экстренные функции диагностики...');
+
+window.emergencyDiagnose = function() {
+    console.log('=== ЭКСТРЕННАЯ ДИАГНОСТИКА ===');
+    console.log('timestamp:', new Date().toISOString());
+    console.log('window.supabase:', !!window.supabase);
+    console.log('DOM readyState:', document.readyState);
+    console.log('Загрузка экран hidden:', document.getElementById('loading-screen')?.classList.contains('hidden'));
+    console.log('Главное приложение hidden:', document.getElementById('main-app')?.classList.contains('hidden'));
+    console.log('Экран авторизации hidden:', document.getElementById('auth-screen')?.classList.contains('hidden'));
+    console.log('Глобальные переменные определены:', {
+        currentUser: typeof window.currentUser !== 'undefined',
+        isInitializing: typeof window.isInitializing !== 'undefined',
+        isInitialized: typeof window.isInitialized !== 'undefined'
+    });
+};
+
+window.emergencyReload = function() {
+    console.log('=== ЭКСТРЕННАЯ ПЕРЕЗАГРУЗКА ===');
+    // Очищаем ВСЕ кэши
+    localStorage.clear();
+    sessionStorage.clear();
+    // Принудительная перезагрузка с очисткой кэша
+    window.location.reload(true);
+};
+
+window.emergencyHideLoading = function() {
+    console.log('=== ЭКСТРЕННОЕ СКРЫТИЕ ЗАГРУЗКИ ===');
+    const loading = document.getElementById('loading-screen');
+    if (loading) {
+        loading.classList.add('hidden');
+        loading.style.display = 'none';
+    }
+    const mainApp = document.getElementById('main-app');
+    if (mainApp) {
+        mainApp.classList.remove('hidden');
+    }
+};
+
+// Создаем базовые функции диагностики сразу (дубликаты основных)
+window.checkAppState = function() {
+    console.log('=== БАЗОВОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ ===');
+    console.log('timestamp:', new Date().toISOString());
+    console.log('currentUser определен:', typeof window.currentUser !== 'undefined');
+    console.log('isInitializing определен:', typeof window.isInitializing !== 'undefined');
+    console.log('isInitialized определен:', typeof window.isInitialized !== 'undefined');
+    try {
+        console.log('Loading screen hidden:', document.getElementById('loading-screen')?.classList.contains('hidden'));
+        console.log('Main app hidden:', document.getElementById('main-app')?.classList.contains('hidden'));
+        console.log('Auth screen hidden:', document.getElementById('auth-screen')?.classList.contains('hidden'));
+    } catch (e) {
+        console.log('DOM элементы недоступны:', e.message);
+    }
+};
+
+window.forceInitialize = function() {
+    console.log('=== БАЗОВАЯ ПРИНУДИТЕЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ===');
+    if (typeof window.isInitializing !== 'undefined') {
+        window.isInitializing = false;
+    }
+    if (typeof window.isInitialized !== 'undefined') {
+        window.isInitialized = false;
+    }
+    if (typeof window.initializeApp === 'function') {
+        window.initializeApp().catch(e => console.error('Ошибка принуд. инициализации:', e));
+    } else {
+        console.log('initializeApp еще не определена');
+    }
+};
+
+console.log('✅ Экстренные функции созданы: emergencyDiagnose(), emergencyReload(), emergencyHideLoading()');
+console.log('✅ Базовые функции созданы: checkAppState(), forceInitialize()');
+
 // Проверяем загрузку библиотеки Supabase
 console.log('Проверка загрузки Supabase:', {
     windowSupabase: !!window.supabase,
@@ -161,8 +235,9 @@ if (!document.getElementById('product-fields-styles')) {
     document.head.appendChild(style);
 }
 
-// Инициализация приложения v2.0.1 - с отображением сумм по позициям
-console.log('Начало загрузки скрипта app.js v2.1.0 - Улучшенная обработка таймаутов');
+// Инициализация приложения v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ
+console.log('🚀 Начало загрузки скрипта app.js v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ');
+console.log('🕐 Timestamp загрузки:', new Date().toISOString());
 console.log('🌐 Среда выполнения:', {
     host: window.location.host,
     protocol: window.location.protocol,
@@ -198,13 +273,25 @@ function initApp() {
         closeAllModals();
         console.log('✅ Модальные окна закрыты');
         
+        console.log('🔄 Проверяем состояние перед initializeApp...');
+        console.log('   DOM готов:', document.readyState);
+        console.log('   supabase клиент:', !!supabase);
+        console.log('   isInitializing:', isInitializing);
+        console.log('   isInitialized:', isInitialized);
+        
         console.log('🔄 Запуск initializeApp...');
-        initializeApp().catch(error => {
+        const initPromise = initializeApp();
+        console.log('📝 initializeApp Promise создан');
+        
+        initPromise.then(() => {
+            console.log('✅ initializeApp завершена успешно');
+        }).catch(error => {
             console.error('❌ Критическая ошибка в initializeApp:', error);
             hideLoading();
             showMessage('Ошибка', 'Критическая ошибка инициализации: ' + error.message);
         });
-        console.log('✅ initializeApp запущена успешно');
+        
+        console.log('✅ initApp завершена, ожидаем initializeApp');
         
     } catch (error) {
         console.error('❌ Ошибка в initApp:', error);
@@ -235,7 +322,13 @@ if (document.readyState === 'loading') {
 }
 
 async function initializeApp() {
-    console.log('🔧 initializeApp запущена');
+    console.log('🔧 initializeApp запущена - START');
+    console.log('📊 Начальное состояние:', {
+        isInitializing: isInitializing,
+        isInitialized: isInitialized,
+        supabaseExists: !!supabase,
+        timestamp: new Date().toISOString()
+    });
     
     // Проверяем, не идет ли уже инициализация
     if (isInitializing) {
@@ -249,9 +342,10 @@ async function initializeApp() {
     }
     
     isInitializing = true;
-    console.log('🔒 Устанавливаем флаг инициализации');
+    console.log('🔒 Устанавливаем флаг инициализации - isInitializing = true');
     
     // Проверяем наличие Supabase клиента
+    console.log('🔍 Шаг 1: Проверяем Supabase клиент...');
     if (!supabase) {
         console.log('⚠️ Supabase клиент недоступен, пытаемся инициализировать...');
         
@@ -268,22 +362,30 @@ async function initializeApp() {
         }
     }
 
-    console.log('✅ Supabase клиент доступен, проверяем сессию...');
+    console.log('✅ Supabase клиент доступен');
+    console.log('🔍 Шаг 2: Проверяем сессию...');
     
     try {
         // Проверяем текущую сессию
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('📝 Результат проверки сессии:', { session: !!session });
+        console.log('🔍 Шаг 3: Получаем сессию из Supabase...');
+        const sessionResult = await supabase.auth.getSession();
+        console.log('📝 Сырой результат getSession:', sessionResult);
+        
+        const { data: { session } } = sessionResult;
+        console.log('📝 Обработанная сессия:', { session: !!session, userId: session?.user?.id });
         
         if (session) {
+            console.log('🔍 Шаг 4: Пользователь авторизован, настраиваем...');
             currentUser = session.user;
-            console.log('✅ Пользователь авторизован:', currentUser.id);
+            console.log('✅ currentUser установлен:', currentUser.id);
             
             // Запускаем проверку сессии только для авторизованных пользователей
+            console.log('🔍 Шаг 5: Запускаем проверку сессии...');
             startSessionCheck();
+            console.log('✅ Проверка сессии запущена');
             
             // Загружаем данные пользователя с таймаутом
-            console.log('🔄 Загружаем данные пользователя...');
+            console.log('🔍 Шаг 6: Начинаем загрузку данных пользователя...');
             const loadTimeout = setTimeout(() => {
                 console.error('⏰ ТАЙМАУТ! Загрузка данных заняла слишком много времени');
                 hideLoading();
@@ -292,43 +394,67 @@ async function initializeApp() {
             }, 30000); // 30 секунд таймаут
             
             try {
+                console.log('🔍 Шаг 7: Вызываем loadUserData()...');
                 await loadUserData();
-                console.log('✅ Данные пользователя загружены');
+                console.log('✅ loadUserData() завершена успешно');
             } catch (error) {
                 console.error('❌ Ошибка при загрузке данных пользователя:', error);
                 showMessage('Предупреждение', 'Произошла ошибка при загрузке данных. Приложение работает в ограниченном режиме.');
             } finally {
                 clearTimeout(loadTimeout);
+                console.log('🔍 Шаг 8: Очищен таймаут загрузки');
             }
             
             // Скрываем загрузку и показываем основное приложение
+            console.log('🔍 Шаг 9: Скрываем загрузку и показываем приложение...');
             hideLoading();
             showMainApp();
+            console.log('✅ Основное приложение показано');
             
         } else {
             console.log('ℹ️ Пользователь не авторизован');
+            console.log('🔍 Шаг 4alt: Показываем экран авторизации...');
             // Скрываем загрузку и показываем экран авторизации
             hideLoading();
             showAuthScreen();
+            console.log('✅ Экран авторизации показан');
         }
 
-        console.log('🔗 Настраиваем обработчики событий');
+        console.log('🔍 Шаг 10: Настраиваем обработчики событий...');
         setupEventListeners();
+        console.log('✅ Обработчики событий настроены');
         
+        console.log('🔍 Шаг 11: Настраиваем auth listener...');
         // Настраиваем auth listener ПОСЛЕ основной инициализации
         setupAuthStateListener();
+        console.log('✅ Auth listener настроен');
         
+        console.log('🔍 Шаг 12: Отмечаем инициализацию как завершенную...');
         // Отмечаем, что инициализация завершена
         isInitialized = true;
-        console.log('✅ Инициализация завершена успешно');
+        console.log('✅ isInitialized = true');
+        console.log('🎉 ИНИЦИАЛИЗАЦИЯ ПОЛНОСТЬЮ ЗАВЕРШЕНА!');
         
     } catch (error) {
-        console.error('❌ Ошибка при инициализации:', error);
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации:', error);
+        console.error('Stack trace:', error.stack);
+        console.log('🔍 Состояние при ошибке:', {
+            isInitializing: isInitializing,
+            isInitialized: isInitialized,
+            currentUser: !!currentUser
+        });
         hideLoading();
         showMessage('Ошибка', 'Произошла ошибка при инициализации приложения: ' + error.message);
         showAuthScreen();
     } finally {
+        console.log('🔍 Finally блок: Сбрасываем isInitializing...');
         isInitializing = false;
+        console.log('✅ isInitializing = false');
+        console.log('🔍 Финальное состояние:', {
+            isInitializing: isInitializing,
+            isInitialized: isInitialized,
+            timestamp: new Date().toISOString()
+        });
     }
 }
 
