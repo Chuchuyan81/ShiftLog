@@ -108,6 +108,10 @@ let editingShift = null;
 let editingVenue = null;
 let editingProduct = null;
 
+// Флаг для предотвращения дублирования инициализации
+let isInitializing = false;
+let isInitialized = false;
+
 // Переменные для управления сессией
 let sessionCheckInterval = null;
 let sessionExpirationTime = null;
@@ -175,6 +179,7 @@ console.log('  • refreshUserData() - принудительное обновл
 console.log('  • debugCurrentUser() - отладка текущего пользователя');
 console.log('  • testShiftProducts() - тест сохранения продуктов смены');
 console.log('  • checkAppState() - проверка состояния приложения');
+console.log('  • forceInitialize() - принудительная инициализация приложения');
 console.log('  • forceReload() - принудительная перезагрузка страницы');
 
 function initApp() {
@@ -182,15 +187,30 @@ function initApp() {
     console.log('📊 Состояние перед инициализацией:', {
         supabaseExists: !!supabase,
         currentUser: currentUser,
-        documentReady: document.readyState
+        documentReady: document.readyState,
+        isInitializing: isInitializing,
+        isInitialized: isInitialized
     });
     
-    // Принудительно скрываем все модальные окна при загрузке
-    closeAllModals();
-    console.log('✅ Модальные окна закрыты');
-    
-    console.log('🔄 Запуск initializeApp...');
-    initializeApp();
+    try {
+        // Принудительно скрываем все модальные окна при загрузке
+        console.log('🔄 Закрываем модальные окна...');
+        closeAllModals();
+        console.log('✅ Модальные окна закрыты');
+        
+        console.log('🔄 Запуск initializeApp...');
+        initializeApp().catch(error => {
+            console.error('❌ Критическая ошибка в initializeApp:', error);
+            hideLoading();
+            showMessage('Ошибка', 'Критическая ошибка инициализации: ' + error.message);
+        });
+        console.log('✅ initializeApp запущена успешно');
+        
+    } catch (error) {
+        console.error('❌ Ошибка в initApp:', error);
+        hideLoading();
+        showMessage('Ошибка', 'Ошибка инициализации приложения: ' + error.message);
+    }
 }
 
 // Устанавливаем таймаут для инициализации
@@ -217,6 +237,20 @@ if (document.readyState === 'loading') {
 async function initializeApp() {
     console.log('🔧 initializeApp запущена');
     
+    // Проверяем, не идет ли уже инициализация
+    if (isInitializing) {
+        console.log('⚠️ Инициализация уже идет, пропускаем повторный вызов');
+        return;
+    }
+    
+    if (isInitialized) {
+        console.log('✅ Приложение уже инициализировано');
+        return;
+    }
+    
+    isInitializing = true;
+    console.log('🔒 Устанавливаем флаг инициализации');
+    
     // Проверяем наличие Supabase клиента
     if (!supabase) {
         console.log('⚠️ Supabase клиент недоступен, пытаемся инициализировать...');
@@ -229,6 +263,7 @@ async function initializeApp() {
             hideLoading();
             showMessage('Ошибка', 'Не удалось подключиться к базе данных. Проверьте интернет-соединение.');
             showAuthScreen();
+            isInitializing = false;
             return;
         }
     }
@@ -279,6 +314,12 @@ async function initializeApp() {
 
         console.log('🔗 Настраиваем обработчики событий');
         setupEventListeners();
+        
+        // Настраиваем auth listener ПОСЛЕ основной инициализации
+        setupAuthStateListener();
+        
+        // Отмечаем, что инициализация завершена
+        isInitialized = true;
         console.log('✅ Инициализация завершена успешно');
         
     } catch (error) {
@@ -286,6 +327,8 @@ async function initializeApp() {
         hideLoading();
         showMessage('Ошибка', 'Произошла ошибка при инициализации приложения: ' + error.message);
         showAuthScreen();
+    } finally {
+        isInitializing = false;
     }
 }
 
@@ -3346,37 +3389,68 @@ async function analyzeExistingShifts() {
     }
 }
 
-// Настройка слушателей изменения аутентификации
-if (supabase) {
+// Функция для настройки слушателей изменения аутентификации
+function setupAuthStateListener() {
+    if (!supabase) return;
+    
+    console.log('🔧 Настраиваем auth state listener');
+    
     supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
         
+        // Если приложение еще не инициализировано, пропускаем SIGNED_IN
+        // чтобы не дублировать инициализацию
         if (event === 'SIGNED_IN') {
-            currentUser = session.user;
-            console.log('Пользователь вошел в систему:', currentUser.id);
+            if (!isInitialized) {
+                console.log('⚠️ Приложение еще не инициализировано, пропускаем SIGNED_IN');
+                return;
+            }
             
-            // Запускаем проверку сессии
-            startSessionCheck();
+            // Только если пользователь действительно сменился
+            if (currentUser?.id !== session?.user?.id) {
+                console.log('Новый пользователь вошел в систему:', session.user.id);
+                
+                currentUser = session.user;
+                
+                // Запускаем проверку сессии
+                startSessionCheck();
+                
+                // Загружаем данные нового пользователя
+                try {
+                    await loadUserData();
+                    showMainApp();
+                } catch (error) {
+                    console.error('Ошибка загрузки данных при смене пользователя:', error);
+                    showMessage('Ошибка', 'Не удалось загрузить данные пользователя');
+                }
+            } else {
+                console.log('Тот же пользователь, пропускаем повторную загрузку');
+            }
             
-            await loadUserData();
-            showMainApp();
         } else if (event === 'SIGNED_OUT') {
             console.log('Пользователь вышел из системы');
             
             // Останавливаем проверку сессии
             stopSessionCheck();
             
+            // Очищаем данные
             currentUser = null;
             venues = [];
             products = [];
             shifts = [];
+            
+            // Сбрасываем флаги инициализации
+            isInitialized = false;
+            isInitializing = false;
+            
             showAuthScreen();
+            
         } else if (event === 'TOKEN_REFRESHED') {
             console.log('Токен обновлен');
             // Время истечения сессии теперь управляется логикой активности
         }
     });
-} 
+}
 
 
 
@@ -3427,8 +3501,19 @@ window.checkAppState = function() {
     console.log('Смены:', shifts.length);
     console.log('Текущий месяц:', currentMonth);
     console.log('Supabase клиент:', !!supabase);
-    console.log('Экран загрузки скрыт:', document.getElementById('loading-screen').classList.contains('hidden'));
-    console.log('Главное приложение показано:', !document.getElementById('main-app').classList.contains('hidden'));
+    console.log('Флаги инициализации:', { isInitializing, isInitialized });
+    console.log('Экран загрузки скрыт:', document.getElementById('loading-screen')?.classList.contains('hidden'));
+    console.log('Главное приложение показано:', !document.getElementById('main-app')?.classList.contains('hidden'));
+    console.log('Экран авторизации показан:', !document.getElementById('auth-screen')?.classList.contains('hidden'));
+};
+
+window.forceInitialize = function() {
+    console.log('=== ПРИНУДИТЕЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ===');
+    isInitializing = false;
+    isInitialized = false;
+    initializeApp().catch(error => {
+        console.error('Ошибка принудительной инициализации:', error);
+    });
 };
 
 // Функция для принудительного обновления данных
