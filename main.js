@@ -2272,19 +2272,13 @@ async function populateShiftForm(shift) {
     
     toggleWorkFields();
     
-    // Сначала обновляем поля продуктов для выбранного заведения (с очисткой значений)
-    console.log('🔄 Обновляем поля продуктов с очисткой для редактирования смены');
-    updateProductFields(true);
+    // НОВАЯ ЛОГИКА: Сначала загружаем данные продуктов, потом создаем поля
+    let shiftProductsData = [];
     
-    // Загружаем данные продуктов смены из базы (только для существующих смен)
     if (shift.id && shift.id !== 'undefined') {
         console.log('🔍 Загружаем данные продуктов для смены ID:', shift.id);
-        console.log('🔍 Тип ID смены:', typeof shift.id);
         
         try {
-            // Дождемся создания полей продуктов перед загрузкой данных
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
             const { data: shiftProducts, error } = await supabase
                 .from('shift_products')
                 .select('*')
@@ -2299,56 +2293,25 @@ async function populateShiftForm(shift) {
             
             if (error) {
                 console.error('❌ Ошибка загрузки продуктов смены:', error);
-                return;
-            }
-            
-            // Заполняем количества продуктов (используем только загруженные данные из БД)
-            const productsData = shiftProducts || [];
-            
-            console.log(`📦 Найдено ${productsData.length} продуктов для смены ${shift.id}`);
-            
-            if (productsData.length > 0) {
-                // Заполняем поля количества
-                productsData.forEach(sp => {
-                    const input = document.querySelector(`[data-product-id="${sp.product_id}"]`);
-                    console.log(`🔍 Ищем поле для продукта ${sp.product_id}:`, !!input);
-                    
-                    if (input) {
-                        input.value = sp.quantity;
-                        console.log(`✅ Установлено количество ${sp.quantity} для продукта ${sp.product_id}`);
-                        
-                        // Принудительно запускаем событие change для обновления сумм
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                    } else {
-                        console.warn(`⚠️ Поле для продукта ${sp.product_id} не найдено`);
-                        
-                        // Покажем все доступные поля для отладки
-                        const allInputs = document.querySelectorAll('[data-product-id]');
-                        console.log('Доступные поля продуктов:', Array.from(allInputs).map(i => i.getAttribute('data-product-id')));
-                    }
-                });
-                
-                // Обновляем суммы продуктов и общие итоги
-                setTimeout(() => {
-                    updateAllProductSums();
-                    calculateShiftTotals();
-                }, 100);
             } else {
-                console.log('📦 Нет сохраненных продуктов для этой смены');
+                shiftProductsData = shiftProducts || [];
+                console.log(`📦 Найдено ${shiftProductsData.length} продуктов для смены ${shift.id}`);
             }
             
         } catch (error) {
             console.error('❌ Исключение при загрузке продуктов смены:', error);
         }
-    } else {
-        console.log('⚠️ Смена без ID - не загружаем продукты из БД');
     }
     
-    // Обновляем суммы продуктов и общие итоги в любом случае
+    // Создаем поля продуктов с загруженными данными
+    console.log('🔄 Создаем поля продуктов с данными смены');
+    updateProductFieldsWithData(shiftProductsData);
+    
+    // Обновляем суммы и итоги
     setTimeout(() => {
         updateAllProductSums();
         calculateShiftTotals();
-    }, 300);
+    }, 100);
 }
 
 function resetShiftForm() {
@@ -2420,6 +2383,85 @@ function updateAllProductSums() {
             }
         }
     });
+}
+
+// Новая функция для создания полей продуктов с данными смены
+function updateProductFieldsWithData(shiftProductsData = []) {
+    const container = document.getElementById('product-fields');
+    if (!container) {
+        console.error('Контейнер product-fields не найден');
+        return;
+    }
+    
+    console.log('=== СОЗДАНИЕ ПОЛЕЙ ПРОДУКТОВ С ДАННЫМИ СМЕНЫ ===');
+    console.log('Данные продуктов смены:', shiftProductsData);
+    
+    container.innerHTML = '';
+    
+    // Получаем выбранное заведение
+    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    
+    if (!selectedVenueId) {
+        container.innerHTML = '<div class="form-group"><label>Сначала выберите заведение для отображения позиций</label></div>';
+        calculateShiftTotals();
+        return;
+    }
+    
+    // Фильтруем продукты по выбранному заведению
+    console.log('🏢 Выбранное заведение:', selectedVenueId);
+    console.log('📦 Все доступные продукты:', products);
+    
+    const venueProducts = products.filter(product => product.venue_id === selectedVenueId);
+    console.log('📦 Продукты для заведения:', venueProducts);
+    
+    if (venueProducts.length === 0) {
+        container.innerHTML = '<div class="form-group"><label>У выбранного заведения нет позиций</label></div>';
+        calculateShiftTotals();
+        return;
+    }
+    
+    venueProducts.forEach(product => {
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'form-group';
+        
+        // Ищем количество для этого продукта в данных смены
+        const shiftProduct = shiftProductsData.find(sp => sp.product_id === product.id);
+        const quantity = shiftProduct ? shiftProduct.quantity : 0;
+        
+        console.log(`Продукт ${product.name}: сохраненное количество = ${quantity}`);
+        
+        // Рассчитываем сумму
+        const sum = quantity * product.price_per_unit;
+        
+        fieldGroup.innerHTML = `
+            <label>${product.name} (${formatCurrency(product.price_per_unit)}):</label>
+            <div class="product-input-group">
+                <input type="number" data-product-id="${product.id}" min="0" step="1" value="${quantity}" class="product-input" id="product-${product.id}" placeholder="Количество">
+                <span class="product-sum ${quantity > 0 ? 'has-value' : ''}" id="product-sum-${product.id}">${formatCurrency(sum)}</span>
+            </div>
+        `;
+        container.appendChild(fieldGroup);
+        
+        console.log(`Создано поле для продукта ${product.name} с количеством: ${quantity}`);
+        
+        // Добавляем слушатели событий для автоматического пересчета
+        const input = fieldGroup.querySelector('.product-input');
+        input.addEventListener('input', (e) => {
+            console.log(`Введено значение ${e.target.value} для продукта ${product.name}`);
+            updateProductSum(product.id, product.price_per_unit);
+            calculateShiftTotals();
+        });
+        input.addEventListener('change', (e) => {
+            console.log(`Изменено значение ${e.target.value} для продукта ${product.name}`);
+            updateProductSum(product.id, product.price_per_unit);
+            calculateShiftTotals();
+        });
+    });
+    
+    // Пересчитываем итоги после создания полей
+    calculateShiftTotals();
+    
+    console.log('✅ === ПОЛЯ ПРОДУКТОВ СОЗДАНЫ С ДАННЫМИ СМЕНЫ ===');
 }
 
 function updateProductFields(clearValues = false) {
