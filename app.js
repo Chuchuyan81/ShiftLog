@@ -82,6 +82,32 @@ console.log('Проверка загрузки Supabase:', {
     windowSupabaseType: typeof window.supabase
 });
 
+// ПРИНУДИТЕЛЬНЫЙ ТАЙМАУТ ДЛЯ СКРЫТИЯ ЗАГРУЗКИ
+setTimeout(() => {
+    console.log('🚨 ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЗАГРУЗКИ ЧЕРЕЗ 15 СЕКУНД');
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        console.log('🔧 Загрузка все еще видна - принудительно скрываем');
+        loadingScreen.classList.add('hidden');
+        
+        const authScreen = document.getElementById('auth-screen');
+        const mainApp = document.getElementById('main-app');
+        
+        // Если есть авторизованный пользователь - показываем приложение
+        if (window.currentUser) {
+            console.log('👤 Есть пользователь - показываем приложение');
+            authScreen?.classList.add('hidden');
+            mainApp?.classList.remove('hidden');
+        } else {
+            console.log('👤 Нет пользователя - показываем авторизацию');
+            authScreen?.classList.remove('hidden');
+            mainApp?.classList.add('hidden');
+        }
+        
+        console.log('✅ Принудительное скрытие загрузки выполнено');
+    }
+}, 15000);
+
 // Создаем клиент Supabase с улучшенной инициализацией
 let supabase = null;
 
@@ -3530,18 +3556,28 @@ function setupAuthStateListener() {
     
     supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
+        console.log('🔍 onAuthStateChange флаги:', { isInitialized, isInitializing });
         
         // Если приложение еще не инициализировано, пропускаем SIGNED_IN
         // чтобы не дублировать инициализацию
         if (event === 'SIGNED_IN') {
+            console.log('🔍 Обрабатываем SIGNED_IN событие');
+            console.log('👤 Пользователь из события:', session?.user?.id);
+            console.log('👤 Текущий пользователь:', currentUser?.id);
             if (!isInitialized) {
                 console.log('⚠️ Приложение еще не инициализировано, пропускаем SIGNED_IN');
                 return;
             }
             
             // Только если пользователь действительно сменился
+            console.log('🔍 Проверяем смену пользователя:', {
+                currentUserId: currentUser?.id,
+                sessionUserId: session?.user?.id,
+                isEqual: currentUser?.id === session?.user?.id
+            });
+            
             if (currentUser?.id !== session?.user?.id) {
-                console.log('Новый пользователь вошел в систему:', session.user.id);
+                console.log('🎯 Новый пользователь вошел в систему:', session.user.id);
                 
                 currentUser = session.user;
                 
@@ -3564,7 +3600,10 @@ function setupAuthStateListener() {
                     console.log('✅ Приложение показано несмотря на ошибку в onAuthStateChange');
                 }
             } else {
-                console.log('Тот же пользователь, пропускаем повторную загрузку');
+                console.log('⚠️ Тот же пользователь, пропускаем повторную загрузку');
+                console.log('🔧 ПРИНУДИТЕЛЬНО скрываем загрузку для того же пользователя');
+                hideLoading();
+                showMainApp();
             }
             
         } else if (event === 'SIGNED_OUT') {
