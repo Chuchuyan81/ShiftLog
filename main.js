@@ -1030,10 +1030,7 @@ function setupSettingsListeners() {
         updateCurrencyDisplay();
     });
     
-    // Отладка пользователя
-    document.getElementById('debug-user-btn').addEventListener('click', debugCurrentUser);
-    document.getElementById('test-shift-products-btn').addEventListener('click', testShiftProducts);
-    document.getElementById('analyze-shifts-btn').addEventListener('click', analyzeExistingShifts);
+
     
     // Добавляем глобальную функцию для теста кнопки сохранения
     window.testSaveButton = function() {
@@ -2123,6 +2120,10 @@ async function renderShiftsList() {
                 </div>
                 <div class="shift-venue">${venueName}</div>
                 <div class="shift-amounts">
+                    <div class="amount-item">
+                        <span class="amount-label">Чаевые:</span>
+                        <span class="amount-value">${formatCurrency(shift.tips || 0)}</span>
+                    </div>
                     <div class="amount-item">
                         <span class="amount-label">Выручка:</span>
                         <span class="amount-value">${formatCurrency(shift.revenue_generated || 0)}</span>
@@ -3855,230 +3856,7 @@ function showMessage(title, text) {
     modal.style.display = 'flex';
 }
 
-async function debugCurrentUser() {
-    console.log('=== ПОЛНАЯ ДИАГНОСТИКА ===');
-    
-    // 1. Проверяем текущего пользователя
-    console.log('currentUser переменная:', currentUser);
-    
-    // 2. Проверяем сессию
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    console.log('Сессия:', sessionData, 'Ошибка:', sessionError);
-    
-    if (currentUser?.id) {
-        console.log('=== ПРОВЕРКА ДАННЫХ В БД ===');
-        
-        // 3. Проверяем смены напрямую из БД
-        const { data: shiftsData, error: shiftsError } = await supabase
-            .from('shifts')
-            .select('id, shift_date, venue_id, is_workday, revenue_generated, earnings')
-            .eq('user_id', currentUser.id)
-            .order('shift_date', { ascending: false })
-            .limit(10);
-        console.log('Смены в БД (последние 10):', shiftsData, 'Ошибка:', shiftsError);
-        
-        // 4. Проверяем заведения
-        const { data: venuesData, error: venuesError } = await supabase
-            .from('venues')
-            .select('id, name, user_id')
-            .eq('user_id', currentUser.id);
-        console.log('Заведения в БД:', venuesData, 'Ошибка:', venuesError);
-        
-        // 5. Проверяем связи смен с заведениями
-        if (shiftsData && venuesData) {
-            const shiftsWithVenues = shiftsData.map(shift => {
-                const venue = venuesData.find(v => v.id === shift.venue_id);
-                return {
-                    ...shift,
-                    venue_name: venue?.name || 'НЕТ ЗАВЕДЕНИЯ'
-                };
-            });
-            console.log('Смены с названиями заведений:', shiftsWithVenues);
-        }
-        
-        // 6. Проверяем текущий месяц для фильтрации
-        console.log('Текущий месяц для фильтрации:', currentMonth);
-        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-        console.log('Период фильтрации:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
-        
-        // 7. Проверяем смены за текущий месяц
-        const { data: monthShifts, error: monthError } = await supabase
-            .from('shifts')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
-            .lte('shift_date', endOfMonth.toISOString().split('T')[0]);
-        console.log('Смены за текущий месяц:', monthShifts, 'Ошибка:', monthError);
-        
-        // 8. Проверяем структуру таблицы shift_products
-        const { data: shiftProductsStructure, error: structureError } = await supabase
-            .from('shift_products')
-            .select('*')
-            .limit(1);
-        console.log('Структура shift_products:', shiftProductsStructure, 'Ошибка:', structureError);
-        
-        // 9. Проверяем связанные данные shift_products для тестовой смены
-        if (shiftsData && shiftsData.length > 0) {
-            const testShiftId = shiftsData[0].id;
-            const { data: testShiftProducts, error: testError } = await supabase
-                .from('shift_products')
-                .select('*')
-                .eq('shift_id', testShiftId);
-            console.log(`Продукты для смены ${testShiftId}:`, testShiftProducts, 'Ошибка:', testError);
-        }
-        
-        alert('Диагностика завершена. Смотрите консоль браузера (F12)');
-    } else {
-        alert('Пользователь не авторизован или нет ID');
-    }
-}
 
-// Функция для тестирования сохранения продуктов смены
-async function testShiftProducts() {
-    console.log('=== ТЕСТ СОХРАНЕНИЯ ПРОДУКТОВ СМЕНЫ ===');
-    
-    if (!currentUser?.id) {
-        alert('Необходимо войти в систему');
-        return;
-    }
-    
-    try {
-        // Создаем уникальную тестовую дату (завтра + случайные дни)
-        const testDate = new Date();
-        testDate.setDate(testDate.getDate() + Math.floor(Math.random() * 30) + 1);
-        
-        const testShiftData = {
-            user_id: currentUser.id,
-            shift_date: testDate.toISOString().split('T')[0],
-            is_workday: true,
-            venue_id: venues[0]?.id || null,
-            fixed_payout: 1000,
-            tips: 200,
-            revenue_generated: 5000,
-            earnings: 2000
-        };
-        
-        console.log('Создаем тестовую смену:', testShiftData);
-        
-        const { data: shiftData, error: shiftError } = await supabase
-            .from('shifts')
-            .insert(testShiftData)
-            .select()
-            .single();
-        
-        if (shiftError) {
-            console.error('Ошибка создания тестовой смены:', shiftError);
-            return;
-        }
-        
-        console.log('Тестовая смена создана:', shiftData);
-        
-        // Создаем тестовые продукты смены
-        const testProducts = products.slice(0, 2).map((product, index) => ({
-            shift_id: shiftData.id,
-            product_id: product.id,
-            quantity: index + 1,
-            price_snapshot: product.price_per_unit,
-            commission_snapshot: product.commission_value
-        }));
-        
-        console.log('Создаем тестовые продукты смены:', testProducts);
-        
-        const { data: productsData, error: productsError } = await supabase
-            .from('shift_products')
-            .insert(testProducts)
-            .select();
-        
-        if (productsError) {
-            console.error('Ошибка создания продуктов смены:', productsError);
-        } else {
-            console.log('Продукты смены созданы:', productsData);
-        }
-        
-        // Удаляем тестовую смену
-        await supabase.from('shift_products').delete().eq('shift_id', shiftData.id);
-        await supabase.from('shifts').delete().eq('id', shiftData.id);
-        
-        console.log('Тестовая смена удалена');
-        alert('Тест завершен. Смотрите консоль браузера (F12)');
-        
-    } catch (error) {
-        console.error('Ошибка тестирования:', error);
-        alert('Ошибка тестирования: ' + error.message);
-    }
-}
-
-// Функция для анализа существующих смен и их продуктов
-async function analyzeExistingShifts() {
-    console.log('=== АНАЛИЗ СУЩЕСТВУЮЩИХ СМЕН И ПРОДУКТОВ ===');
-    
-    if (!currentUser?.id) {
-        alert('Необходимо войти в систему');
-        return;
-    }
-    
-    try {
-        // Получаем все смены пользователя
-        const { data: allShifts, error: shiftsError } = await supabase
-            .from('shifts')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .order('shift_date', { ascending: false })
-            .limit(5);
-        
-        if (shiftsError) {
-            console.error('Ошибка получения смен:', shiftsError);
-            return;
-        }
-        
-        console.log('Последние 5 смен:', allShifts);
-        
-        for (const shift of allShifts) {
-            console.log(`\n--- Анализ смены ${shift.shift_date} ---`);
-            console.log('Данные смены:', shift);
-            
-            // Проверяем продукты для каждой смены
-            const { data: shiftProducts, error: productsError } = await supabase
-                .from('shift_products')
-                .select('*')
-                .eq('shift_id', shift.id);
-            
-            if (productsError) {
-                console.error(`Ошибка получения продуктов для смены ${shift.id}:`, productsError);
-            } else {
-                console.log(`Продукты смены ${shift.shift_date}:`, shiftProducts);
-                console.log(`Количество продуктов: ${shiftProducts.length}`);
-                
-                if (shiftProducts.length === 0) {
-                    console.log('❌ Нет сохраненных продуктов для этой смены');
-                } else {
-                    console.log('✅ Есть сохраненные продукты');
-                    shiftProducts.forEach(product => {
-                        console.log(`  - Продукт ID: ${product.product_id}, Количество: ${product.quantity}, Цена: ${product.price_snapshot}`);
-                    });
-                }
-            }
-        }
-        
-        // Проверяем общую статистику
-        const { data: totalProducts, error: totalError } = await supabase
-            .from('shift_products')
-            .select('shift_id')
-            .in('shift_id', allShifts.map(s => s.id));
-        
-        console.log(`\n=== СТАТИСТИКА ===`);
-        console.log(`Всего смен: ${allShifts.length}`);
-        console.log(`Всего записей продуктов: ${totalProducts?.length || 0}`);
-        console.log(`Смен без продуктов: ${allShifts.length - (totalProducts?.length || 0)}`);
-        
-        alert('Анализ завершен. Смотрите консоль браузера (F12)');
-        
-    } catch (error) {
-        console.error('Ошибка анализа:', error);
-        alert('Ошибка анализа: ' + error.message);
-    }
-}
 
 // Функция для настройки слушателей изменения аутентификации
 function setupAuthStateListener() {
