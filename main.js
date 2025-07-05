@@ -1147,6 +1147,9 @@ function setupModalListeners() {
     document.getElementById('delete-venue').addEventListener('click', deleteVenue);
     document.getElementById('delete-product').addEventListener('click', deleteProduct);
     
+    // Кнопка добавления позиции в заведение
+    document.getElementById('add-venue-product').addEventListener('click', addVenueProduct);
+    
     // Закрытие по клику вне модального окна отключено
     // Модальные окна закрываются только по кнопкам "Сохранить" или "Отмена"
 }
@@ -1445,9 +1448,9 @@ async function loadProductsOptimized() {
             );
             
             const productsPromise = supabase
-                .from('user_products')
-                .select('id, name, price_per_unit, commission_type, commission_value, user_id')
-                .eq('user_id', currentUser.id)
+                .from('venue_products')
+                .select('id, name, price_per_unit, commission_type, commission_value, venue_id')
+                .in('venue_id', venues.map(v => v.id))
                 .order('name')
                 .limit(100); // Увеличиваем лимит
             
@@ -1998,7 +2001,7 @@ function updateReportsMonth() {
     document.getElementById('reports-current-month').textContent = monthText;
 }
 
-// Функция для загрузки продуктов конкретной смены
+// Функция для загрузки продуктов конкретной смены с именами
 async function loadShiftProducts(shiftId) {
     try {
         const { data: shiftProducts, error } = await supabase
@@ -2008,7 +2011,10 @@ async function loadShiftProducts(shiftId) {
                 quantity,
                 price_snapshot,
                 commission_snapshot,
-                product_id
+                product_id,
+                venue_products (
+                    name
+                )
             `)
             .eq('shift_id', shiftId);
             
@@ -2085,8 +2091,10 @@ async function renderShiftsList() {
             productsHtml += '<div class="products-header">📦 Позиции:</div>';
             
             shift.products.forEach(sp => {
-                const product = products.find(p => p.id === sp.product_id);
-                const productName = product?.name || 'Неизвестный продукт';
+                // Получаем имя позиции из JOIN'а или из массива products как fallback
+                const productName = sp.venue_products?.name || 
+                                  products.find(p => p.id === sp.product_id)?.name || 
+                                  'Неизвестная позиция';
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
                 productsHtml += `
@@ -2452,7 +2460,11 @@ function updateProductFields(clearValues = false) {
     }
     
     // Фильтруем продукты по выбранному заведению
+    console.log('🏢 Выбранное заведение:', selectedVenueId);
+    console.log('📦 Все доступные продукты:', products);
+    
     const venueProducts = products.filter(product => product.venue_id === selectedVenueId);
+    console.log('📦 Продукты для заведения:', venueProducts);
     
     if (venueProducts.length === 0) {
         container.innerHTML = '<div class="form-group"><label>У выбранного заведения нет позиций</label></div>';
@@ -2966,6 +2978,62 @@ async function deleteShift() {
     }
 }
 
+// Загрузка позиций конкретного заведения
+async function loadVenueProducts(venueId) {
+    console.log('🏢 Загрузка позиций для заведения:', venueId);
+    
+    const productsList = document.getElementById('venue-products-list');
+    if (!productsList) {
+        console.error('Элемент venue-products-list не найден');
+        return;
+    }
+    
+    try {
+        const { data, error } = await supabase
+            .from('venue_products')
+            .select('*')
+            .eq('venue_id', venueId)
+            .order('name');
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            productsList.innerHTML = '';
+            data.forEach(product => {
+                const productItem = document.createElement('div');
+                productItem.className = 'venue-product-item';
+                productItem.innerHTML = `
+                    <div class="venue-product-info">
+                        <div class="venue-product-name">${product.name}</div>
+                        <div class="venue-product-details">
+                            ${formatCurrency(product.price_per_unit)} • 
+                            ${product.commission_type === 'fixed' 
+                                ? `${formatCurrency(product.commission_value)} фикс`
+                                : `${product.commission_value}%`
+                            }
+                        </div>
+                    </div>
+                    <div class="venue-product-actions">
+                        <button type="button" class="btn btn-secondary" onclick="editVenueProduct('${product.id}', '${venueId}')">
+                            ✏️
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="deleteVenueProduct('${product.id}', '${venueId}')">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                productsList.appendChild(productItem);
+            });
+        } else {
+            productsList.innerHTML = '<p class="empty-message">У заведения пока нет позиций</p>';
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки позиций заведения:', error);
+        productsList.innerHTML = '<p class="empty-message">Ошибка загрузки позиций</p>';
+    }
+}
+
 // Модальные окна для заведений
 function openVenueModal(venue = null) {
     console.log('openVenueModal вызвана с параметром:', {
@@ -2997,6 +3065,9 @@ function openVenueModal(venue = null) {
         deleteBtn.classList.remove('hidden');
         document.getElementById('venue-name').value = venue.name || '';
         document.getElementById('venue-payout').value = venue.default_fixed_payout || 0;
+        
+        // Загружаем позиции заведения
+        loadVenueProducts(venue.id);
     } else {
         // Добавление нового заведения (venue = null или venue без id)
         console.log('Открытие модального окна для добавления нового заведения');
@@ -3006,10 +3077,79 @@ function openVenueModal(venue = null) {
         
         // Сбрасываем editingVenue при добавлении нового
         editingVenue = null;
+        
+        // Показываем сообщение для нового заведения
+        const productsList = document.getElementById('venue-products-list');
+        productsList.innerHTML = '<p class="empty-message">Позиции будут добавлены после сохранения заведения</p>';
     }
     
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
+}
+
+// Функции управления позициями заведения
+async function addVenueProduct() {
+    if (!editingVenue || !editingVenue.id) {
+        showMessage('Ошибка', 'Сначала сохраните заведение');
+        return;
+    }
+    
+    // Открываем модальное окно продукта с привязкой к заведению
+    editingProduct = { venue_id: editingVenue.id };
+    openProductModal(editingProduct);
+}
+
+async function editVenueProduct(productId, venueId) {
+    console.log('Редактирование позиции:', productId, 'заведения:', venueId);
+    
+    try {
+        const { data, error } = await supabase
+            .from('venue_products')
+            .select('*')
+            .eq('id', productId)
+            .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+            editingProduct = data;
+            openProductModal(data);
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки позиции:', error);
+        showMessage('Ошибка', 'Не удалось загрузить данные позиции');
+    }
+}
+
+async function deleteVenueProduct(productId, venueId) {
+    console.log('Удаление позиции:', productId, 'заведения:', venueId);
+    
+    if (!confirm('Удалить эту позицию?')) {
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('venue_products')
+            .delete()
+            .eq('id', productId);
+        
+        if (error) throw error;
+        
+        // Перезагружаем список позиций заведения
+        await loadVenueProducts(venueId);
+        
+        // Обновляем общий список продуктов
+        await loadProducts();
+        clearDataCache();
+        
+        showMessage('Успех', 'Позиция удалена');
+        
+    } catch (error) {
+        console.error('Ошибка удаления позиции:', error);
+        showMessage('Ошибка', 'Не удалось удалить позицию');
+    }
 }
 
 function editVenue(venueId) {
@@ -3314,14 +3454,14 @@ async function handleProductSubmit(e) {
         return;
     }
     
-    // Для новой архитектуры нужно выбрать заведение
-    if (!editingProduct) {
-        showMessage('Ошибка', 'Функция добавления продуктов временно недоступна. Продукты теперь привязаны к заведениям. Обратитесь к разработчику.');
+    // Для новой архитектуры нужно привязать к заведению
+    if (!editingProduct || !editingProduct.venue_id) {
+        showMessage('Ошибка', 'Не указано заведение для позиции. Добавляйте позиции через настройки заведения.');
         return;
     }
 
     const productData = {
-        venue_id: editingProduct.venue_id, // Сохраняем привязку к заведению
+        venue_id: editingProduct.venue_id, // Привязка к заведению
         name: productName,
         price_per_unit: productPrice,
         commission_type: commissionType,
@@ -3354,6 +3494,12 @@ async function handleProductSubmit(e) {
         }
         
         closeAllModals();
+        
+        // Обновляем список позиций в модальном окне заведения (если оно открыто)
+        if (editingVenue && editingVenue.id) {
+            await loadVenueProducts(editingVenue.id);
+        }
+        
         await loadProducts();
         // Очищаем кэш после изменения продуктов
         clearDataCache();

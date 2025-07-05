@@ -157,10 +157,10 @@
                         <button class="btn btn-secondary" id="add-venue-btn">Добавить заведение</button>
                     </div>
                     
-                    <div class="settings-section">
+                    <div class="settings-section" style="display: none;">
                         <h3>Позиции/Услуги</h3>
                         <div id="products-list" class="list-items">
-                            <!-- Список позиций -->
+                            <!-- Позиции теперь управляются через заведения -->
                         </div>
                         <button class="btn btn-secondary" id="add-product-btn">Добавить позицию</button>
                     </div>
@@ -275,6 +275,17 @@
                 <div class="form-group">
                     <label>Ставка за выход по умолчанию:</label>
                     <input type="number" id="venue-payout" min="0" step="0.01">
+                </div>
+                
+                <!-- Секция управления позициями заведения -->
+                <div class="form-group">
+                    <label>Позиции заведения:</label>
+                    <div id="venue-products-list" class="venue-products-list">
+                        <p class="empty-message">Позиции будут добавлены после сохранения заведения</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="add-venue-product" style="margin-top: 10px;">
+                        + Добавить позицию
+                    </button>
                 </div>
                 
                 <div class="modal-footer">
