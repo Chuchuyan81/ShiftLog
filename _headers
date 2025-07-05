@@ -4,5 +4,5 @@
   X-XSS-Protection: 1; mode=block
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self' https://*.supabase.co; script-src 'self' 'unsafe-inline' https://*.supabase.co; style-src 'self' 'unsafe-inline'
+  Content-Security-Policy: default-src 'self' https://*.supabase.co; script-src 'self' 'unsafe-inline' https://*.supabase.co https://cdn.jsdelivr.net https://unpkg.com https://cdn.skypack.dev https://esm.sh; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; img-src 'self' data:
 */ 
