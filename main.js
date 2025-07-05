@@ -1136,10 +1136,15 @@ function setupReportsListeners() {
 }
 
 function setupModalListeners() {
-    // Закрытие модальных окон
+    // Закрытие основных модальных окон
     ['close-shift-modal', 'cancel-shift', 'close-venue-modal', 'cancel-venue', 
-     'close-product-modal', 'cancel-product', 'close-message-modal', 'close-message'].forEach(id => {
+     'close-product-modal', 'cancel-product'].forEach(id => {
         document.getElementById(id).addEventListener('click', closeAllModals);
+    });
+    
+    // Закрытие ТОЛЬКО информационного сообщения (не затрагивает другие модальные окна)
+    ['close-message-modal', 'close-message'].forEach(id => {
+        document.getElementById(id).addEventListener('click', closeMessageModal);
     });
     
     // Удаление
@@ -3825,6 +3830,20 @@ function closeAllModals() {
         console.log('Все модальные окна закрыты');
     } catch (error) {
         console.log('Ошибка при закрытии модальных окон (возможно DOM еще не загружен):', error.message);
+    }
+}
+
+// Функция для закрытия ТОЛЬКО информационного сообщения
+function closeMessageModal() {
+    try {
+        const messageModal = document.getElementById('message-modal');
+        if (messageModal) {
+            messageModal.classList.add('hidden');
+            messageModal.style.display = 'none';
+            console.log('Информационное сообщение закрыто');
+        }
+    } catch (error) {
+        console.log('Ошибка при закрытии информационного сообщения:', error.message);
     }
 }
 
