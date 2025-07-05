@@ -199,6 +199,54 @@ console.log('Клиент Supabase создан:', {
 
 console.log('🚀 Начало загрузки скрипта main.js (НОВАЯ ВЕРСИЯ)');
 
+// ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ ПОСЛЕ ЗАГРУЗКИ
+setTimeout(async () => {
+    console.log('🔐 ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ...');
+    try {
+        const { data: session, error } = await supabase.auth.getSession();
+        console.log('🔍 Результат проверки сессии:', { session: !!session?.session, error });
+        
+        if (session?.session && !currentUser) {
+            console.log('🔄 Найдена активная сессия, но currentUser = null. Восстанавливаем...');
+            currentUser = session.session.user;
+            
+            // Принудительно запускаем загрузку данных
+            if (!isInitialized && !isInitializing) {
+                console.log('🚀 Запускаем инициализацию приложения...');
+                await initializeApp();
+            }
+        }
+    } catch (error) {
+        console.error('❌ Ошибка проверки авторизации:', error);
+    }
+}, 3000);
+
+// ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ИНИЦИАЛИЗАЦИИ ЧЕРЕЗ 5 СЕКУНД
+setTimeout(async () => {
+    console.log('🔍 ПРОВЕРКА СОСТОЯНИЯ ЧЕРЕЗ 5 СЕКУНД...');
+    console.log('Флаги:', { isInitialized, isInitializing, currentUser: !!currentUser });
+    
+    // Если пользователь не определен, но может быть активная сессия
+    if (!currentUser && !isInitializing) {
+        console.log('⚠️ Пользователь не определен. Пробуем восстановить...');
+        try {
+            const { data: session } = await supabase.auth.getSession();
+            if (session?.session?.user) {
+                console.log('🔄 Восстанавливаем пользователя и инициализируем...');
+                await window.restoreAuth();
+            } else {
+                console.log('❌ Сессия не найдена. Показываем авторизацию.');
+                hideLoading();
+                showAuthScreen();
+            }
+        } catch (error) {
+            console.error('❌ Ошибка при проверке сессии:', error);
+            hideLoading();
+            showAuthScreen();
+        }
+    }
+}, 5000);
+
 // ДОПОЛНИТЕЛЬНАЯ ПРИНУДИТЕЛЬНАЯ ЗАЩИТА НА СЛУЧАЙ ЗАВИСАНИЯ
 setTimeout(() => {
     console.log('🚨 РЕЗЕРВНАЯ ЗАЩИТА: Проверяем загрузку через 8 секунд');
@@ -220,6 +268,7 @@ setTimeout(() => {
 // Состояние приложения
 let currentUser = null;
 let currentMonth = new Date();
+console.log('🗓️ Инициализация currentMonth:', currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
 let venues = [];
 let products = [];
 let shifts = [];
@@ -3792,6 +3841,57 @@ window.diagnoseShifts = async function() {
     renderShiftsList();
     
     console.log('✅ Диагностика завершена');
+};
+
+// ЭКСТРЕННОЕ ВОССТАНОВЛЕНИЕ АВТОРИЗАЦИИ
+window.restoreAuth = async function() {
+    console.log('🔐 === ЭКСТРЕННОЕ ВОССТАНОВЛЕНИЕ АВТОРИЗАЦИИ ===');
+    
+    try {
+        console.log('1️⃣ Проверяем текущую сессию...');
+        const { data: session, error } = await supabase.auth.getSession();
+        
+        console.log('📋 Результат getSession:', { 
+            session: !!session?.session, 
+            user: !!session?.session?.user,
+            error: error 
+        });
+        
+        if (session?.session?.user) {
+            console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
+            currentUser = session.session.user;
+            
+            console.log('2️⃣ Сбрасываем флаги инициализации...');
+            isInitialized = false;
+            isInitializing = false;
+            
+            console.log('📅 Сбрасываем дату на текущий месяц...');
+            currentMonth = new Date();
+            console.log('📅 Установлена дата:', currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
+            
+            console.log('3️⃣ Принудительная инициализация...');
+            await initializeApp();
+            
+            console.log('4️⃣ Переключаем на главный экран...');
+            hideLoading();
+            showMainApp();
+            
+            console.log('✅ АВТОРИЗАЦИЯ ВОССТАНОВЛЕНА!');
+            return true;
+            
+        } else {
+            console.log('❌ Активная сессия не найдена. Показываем экран авторизации...');
+            hideLoading();
+            showAuthScreen();
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка восстановления авторизации:', error);
+        hideLoading();
+        showAuthScreen();
+        return false;
+    }
 };
 
 // Функция для принудительного обновления данных
