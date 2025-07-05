@@ -330,6 +330,175 @@ if (!document.getElementById('product-fields-styles')) {
     document.head.appendChild(style);
 }
 
+// Добавляем CSS-стили для карточек смен
+if (!document.getElementById('shift-cards-styles')) {
+    const style = document.createElement('style');
+    style.id = 'shift-cards-styles';
+    style.textContent = `
+        .shift-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .shift-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .shift-card.holiday {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+        
+        .shift-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .shift-date {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+        }
+        
+        .date-day {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            line-height: 1;
+        }
+        
+        .date-month {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        
+        .shift-venue {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 500;
+            color: #374151;
+            margin: 0 16px;
+            min-width: 120px;
+        }
+        
+        .shift-amounts {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .amount-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 80px;
+        }
+        
+        .amount-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+        
+        .amount-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .shift-products {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 12px;
+            margin-top: 12px;
+        }
+        
+        .products-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .product-item:last-child {
+            border-bottom: none;
+        }
+        
+        .product-name {
+            font-size: 14px;
+            color: #374151;
+            flex: 1;
+        }
+        
+        .product-details {
+            font-size: 14px;
+            color: #6b7280;
+            font-family: monospace;
+            font-weight: 500;
+        }
+        
+        .shifts-container {
+            padding: 0;
+        }
+        
+        .shifts-list {
+            padding: 0;
+            margin: 0;
+        }
+        
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+            .shift-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .shift-date {
+                flex-direction: row;
+                justify-content: flex-start;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .shift-venue {
+                margin: 8px 0;
+                text-align: left;
+            }
+            
+            .shift-amounts {
+                justify-content: space-between;
+            }
+            
+            .amount-item {
+                align-items: flex-start;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // Инициализация приложения v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ
 console.log('🚀 Начало загрузки скрипта app.js v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ');
 console.log('🕐 Timestamp загрузки:', new Date().toISOString());
@@ -1829,7 +1998,33 @@ function updateReportsMonth() {
     document.getElementById('reports-current-month').textContent = monthText;
 }
 
-function renderShiftsList() {
+// Функция для загрузки продуктов конкретной смены
+async function loadShiftProducts(shiftId) {
+    try {
+        const { data: shiftProducts, error } = await supabase
+            .from('shift_products')
+            .select(`
+                id,
+                quantity,
+                price_snapshot,
+                commission_snapshot,
+                product_id
+            `)
+            .eq('shift_id', shiftId);
+            
+        if (error) {
+            console.error('❌ Ошибка загрузки продуктов смены:', error);
+            return [];
+        }
+        
+        return shiftProducts || [];
+    } catch (error) {
+        console.error('❌ Исключение при загрузке продуктов смены:', error);
+        return [];
+    }
+}
+
+async function renderShiftsList() {
     console.log('🎨 === НАЧАЛО РЕНДЕРА СМЕН ===');
     const container = document.getElementById('shifts-list');
     
@@ -1861,11 +2056,19 @@ function renderShiftsList() {
         return;
     }
     
-    shifts.forEach(shift => {
-        console.log('🎯 Отображаем смену:', shift);
+    // Загружаем продукты для всех смен параллельно
+    const shiftsWithProducts = await Promise.all(
+        shifts.map(async (shift) => {
+            const shiftProducts = await loadShiftProducts(shift.id);
+            return { ...shift, products: shiftProducts };
+        })
+    );
+    
+    shiftsWithProducts.forEach(shift => {
+        console.log('🎯 Отображаем смену с продуктами:', shift);
         
         const shiftElement = document.createElement('div');
-        shiftElement.className = `shift-row ${!shift.is_workday ? 'holiday' : ''}`;
+        shiftElement.className = `shift-card ${!shift.is_workday ? 'holiday' : ''}`;
         shiftElement.onclick = async () => await editShift(shift);
         
         const date = new Date(shift.shift_date);
@@ -1875,16 +2078,49 @@ function renderShiftsList() {
         const venue = venues.find(v => v.id === shift.venue_id);
         const venueName = venue?.name || 'Не указано';
         
+        // Формируем список продуктов
+        let productsHtml = '';
+        if (shift.products && shift.products.length > 0) {
+            productsHtml = '<div class="shift-products">';
+            productsHtml += '<div class="products-header">📦 Позиции:</div>';
+            
+            shift.products.forEach(sp => {
+                const product = products.find(p => p.id === sp.product_id);
+                const productName = product?.name || 'Неизвестный продукт';
+                const totalPrice = sp.quantity * sp.price_snapshot;
+                
+                productsHtml += `
+                    <div class="product-item">
+                        <span class="product-name">${productName}</span>
+                        <span class="product-details">
+                            ${sp.quantity} × ${formatCurrency(sp.price_snapshot)} = ${formatCurrency(totalPrice)}
+                        </span>
+                    </div>
+                `;
+            });
+            
+            productsHtml += '</div>';
+        }
+        
         shiftElement.innerHTML = `
-            <div class="table-cell">
-                <div>
-                    <div class="shift-date">${dayNames[date.getDay()]} ${date.getDate()}</div>
-                    <div class="shift-venue">${venueName}</div>
+            <div class="shift-header">
+                <div class="shift-date">
+                    <div class="date-day">${dayNames[date.getDay()]} ${date.getDate()}</div>
+                    <div class="date-month">${date.toLocaleDateString('ru-RU', { month: 'short' })}</div>
+                </div>
+                <div class="shift-venue">${venueName}</div>
+                <div class="shift-amounts">
+                    <div class="amount-item">
+                        <span class="amount-label">Выручка:</span>
+                        <span class="amount-value">${formatCurrency(shift.revenue_generated || 0)}</span>
+                    </div>
+                    <div class="amount-item">
+                        <span class="amount-label">Заработок:</span>
+                        <span class="amount-value">${formatCurrency(shift.earnings || 0)}</span>
+                    </div>
                 </div>
             </div>
-            <div class="table-cell shift-venue">${venueName}</div>
-            <div class="table-cell shift-amount">${formatCurrency(shift.revenue_generated || 0)}</div>
-            <div class="table-cell shift-amount">${formatCurrency(shift.earnings || 0)}</div>
+            ${productsHtml}
         `;
         
         container.appendChild(shiftElement);
