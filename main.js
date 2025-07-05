@@ -1312,6 +1312,12 @@ async function loadShiftsOptimized() {
             
             shifts = data || [];
             console.log(`✅ Смены загружены на попытке ${attempt}:`, shifts.length);
+            console.log('📋 ПОДРОБНЫЕ ДАННЫЕ СМЕН:', data);
+            console.log('📅 Период загрузки:', {
+                start: startOfMonth.toISOString().split('T')[0],
+                end: endOfMonth.toISOString().split('T')[0],
+                currentMonth: currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+            });
             
             // Немедленно обновляем интерфейс
             renderShiftsList();
@@ -1775,7 +1781,17 @@ function updateReportsMonth() {
 }
 
 function renderShiftsList() {
+    console.log('🎨 === НАЧАЛО РЕНДЕРА СМЕН ===');
     const container = document.getElementById('shifts-list');
+    
+    console.log('📋 Контейнер shifts-list найден:', !!container);
+    console.log('👤 Текущий пользователь:', !!currentUser);
+    console.log('📅 Количество смен в массиве:', shifts.length);
+    console.log('📅 Данные смен:', shifts);
+    console.log('🏢 Количество заведений:', venues.length);
+    console.log('🏢 Данные заведений:', venues);
+    console.log('📅 Текущий месяц:', currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
+    
     container.innerHTML = '';
     
     console.log('🎨 Отображение смен:', { count: shifts.length, currentUser: !!currentUser });
@@ -1824,6 +1840,10 @@ function renderShiftsList() {
         
         container.appendChild(shiftElement);
     });
+    
+    console.log('✅ === РЕНДЕР СМЕН ЗАВЕРШЕН ===');
+    console.log('📋 HTML контент контейнера:', container.innerHTML.length > 0 ? 'ЗАПОЛНЕН' : 'ПУСТОЙ');
+    console.log('📋 Количество элементов в контейнере:', container.children.length);
 }
 
 function renderVenuesList() {
@@ -3718,6 +3738,60 @@ window.forceInitialize = function() {
     initializeApp().catch(error => {
         console.error('Ошибка принудительной инициализации:', error);
     });
+};
+
+// Диагностика смен
+window.diagnoseShifts = async function() {
+    console.log('🔍 === ДИАГНОСТИКА СМЕН ===');
+    
+    console.log('1️⃣ Состояние переменных:');
+    console.log('  - currentUser:', currentUser);
+    console.log('  - shifts массив:', shifts);
+    console.log('  - venues массив:', venues);
+    console.log('  - currentMonth:', currentMonth);
+    
+    console.log('2️⃣ DOM элементы:');
+    const container = document.getElementById('shifts-list');
+    console.log('  - shifts-list найден:', !!container);
+    console.log('  - shifts-list HTML длина:', container?.innerHTML?.length || 0);
+    console.log('  - shifts-list дочерние элементы:', container?.children?.length || 0);
+    
+    if (currentUser?.id) {
+        console.log('3️⃣ Прямой запрос к базе данных:');
+        try {
+            const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            const { data: directShifts, error } = await supabase
+                .from('shifts')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+                .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+                .order('shift_date', { ascending: false });
+                
+            console.log('  - Прямой запрос результат:', directShifts);
+            console.log('  - Прямой запрос ошибка:', error);
+            console.log('  - Количество смен в БД:', directShifts?.length || 0);
+            
+            // Проверяем заведения тоже
+            const { data: directVenues, error: venuesError } = await supabase
+                .from('venues')
+                .select('*')
+                .eq('user_id', currentUser.id);
+                
+            console.log('  - Заведения в БД:', directVenues);
+            console.log('  - Заведения ошибка:', venuesError);
+            
+        } catch (error) {
+            console.error('  - Ошибка прямого запроса:', error);
+        }
+    }
+    
+    console.log('4️⃣ Принудительный рендер:');
+    renderShiftsList();
+    
+    console.log('✅ Диагностика завершена');
 };
 
 // Функция для принудительного обновления данных
