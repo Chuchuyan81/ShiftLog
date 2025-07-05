@@ -197,6 +197,26 @@ console.log('Клиент Supabase создан:', {
     supabaseType: typeof supabase
 });
 
+console.log('🚀 Начало загрузки скрипта main.js (НОВАЯ ВЕРСИЯ)');
+
+// ДОПОЛНИТЕЛЬНАЯ ПРИНУДИТЕЛЬНАЯ ЗАЩИТА НА СЛУЧАЙ ЗАВИСАНИЯ
+setTimeout(() => {
+    console.log('🚨 РЕЗЕРВНАЯ ЗАЩИТА: Проверяем загрузку через 8 секунд');
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        console.log('⚠️ РЕЗЕРВНАЯ ЗАЩИТА СРАБОТАЛА - скрываем загрузку');
+        loadingScreen.classList.add('hidden');
+        
+        if (window.currentUser) {
+            document.getElementById('main-app')?.classList.remove('hidden');
+            document.getElementById('auth-screen')?.classList.add('hidden');
+        } else {
+            document.getElementById('auth-screen')?.classList.remove('hidden');
+            document.getElementById('main-app')?.classList.add('hidden');
+        }
+    }
+}, 8000);
+
 // Состояние приложения
 let currentUser = null;
 let currentMonth = new Date();
@@ -3578,6 +3598,11 @@ function setupAuthStateListener() {
             
             if (currentUser?.id !== session?.user?.id) {
                 console.log('🎯 Новый пользователь вошел в систему:', session.user.id);
+                
+                // ПРИНУДИТЕЛЬНО скрываем загрузку НЕМЕДЛЕННО при входе
+                console.log('🚨 ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЗАГРУЗКИ ПРИ ВХОДЕ ПОЛЬЗОВАТЕЛЯ');
+                hideLoading();
+                showMainApp();
                 
                 currentUser = session.user;
                 

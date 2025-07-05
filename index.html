@@ -361,8 +361,40 @@
             console.log('✅ Supabase успешно загружен из основного CDN');
         }
     </script>
+    <!-- Принудительный механизм скрытия загрузки -->
+    <script>
+        console.log('🚨 ЗАПУСК ПРИНУДИТЕЛЬНОГО ТАЙМЕРА СКРЫТИЯ ЗАГРУЗКИ');
+        
+        // Принудительно скрываем загрузку через 10 секунд
+        setTimeout(function() {
+            console.log('🚨 ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЗАГРУЗКИ (HTML таймер)');
+            const loadingScreen = document.getElementById('loading-screen');
+            const authScreen = document.getElementById('auth-screen');
+            const mainApp = document.getElementById('main-app');
+            
+            if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+                console.log('🔧 Принудительно скрываем загрузку из HTML');
+                loadingScreen.classList.add('hidden');
+                
+                // Показываем экран авторизации по умолчанию
+                if (authScreen) authScreen.classList.remove('hidden');
+                if (mainApp) mainApp.classList.add('hidden');
+                
+                console.log('✅ Принудительное скрытие из HTML выполнено');
+            }
+        }, 10000);
+        
+        // Дополнительный механизм для быстрого доступа
+        window.emergencyHideLoading = function() {
+            console.log('🆘 ЭКСТРЕННОЕ СКРЫТИЕ ЗАГРУЗКИ');
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+        };
+    </script>
+    
     <script src="supabase-fallback.js?v=2.6.0&t=1730811456"></script>
-    <script src="app.js?v=2.6.0&t=1730811456"></script>
+    <script src="main.js?v=3.0.0&t=1730812334"></script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>
