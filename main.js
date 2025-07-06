@@ -625,10 +625,12 @@ setTimeout(() => {
 // Состояние приложения
 let currentUser = null;
 let currentMonth = new Date();
+let reportsMonth = new Date(); // Отдельный месяц для отчетов
 console.log('🗓️ Инициализация currentMonth:', currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
 let venues = [];
 let products = [];
 let shifts = [];
+let reportsShifts = []; // Отдельный массив для отчетов
 let currency = '₽';
 let editingShift = null;
 let editingVenue = null;
@@ -1505,16 +1507,16 @@ function setupSettingsListeners() {
 
 function setupReportsListeners() {
     // Навигация по месяцам в отчетах
-    document.getElementById('reports-prev-month').addEventListener('click', () => {
-        currentMonth.setMonth(currentMonth.getMonth() - 1);
+    document.getElementById('reports-prev-month').addEventListener('click', async () => {
+        reportsMonth.setMonth(reportsMonth.getMonth() - 1);
         updateReportsMonth();
-        generateReports();
+        await generateReports();
     });
     
-    document.getElementById('reports-next-month').addEventListener('click', () => {
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
+    document.getElementById('reports-next-month').addEventListener('click', async () => {
+        reportsMonth.setMonth(reportsMonth.getMonth() + 1);
         updateReportsMonth();
-        generateReports();
+        await generateReports();
     });
     
     // Премия
@@ -1625,6 +1627,7 @@ async function handleLogout() {
         venues = [];
         products = [];
         shifts = [];
+        reportsShifts = [];
         showAuthScreen();
     } catch (error) {
         showMessage('Ошибка', error.message);
@@ -1650,6 +1653,10 @@ function switchScreen(screenName) {
             loadShifts();
             break;
         case 'reports':
+            // Инициализируем месяц отчетов текущим месяцем при первом открытии
+            if (reportsMonth.getTime() === new Date().getTime()) {
+                reportsMonth = new Date(currentMonth);
+            }
             generateReports();
             break;
         case 'settings':
@@ -2391,8 +2398,48 @@ function updateReportsMonth() {
         'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
         'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
     ];
-    const monthText = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+    const monthText = `${monthNames[reportsMonth.getMonth()]} ${reportsMonth.getFullYear()}`;
     document.getElementById('reports-current-month').textContent = monthText;
+}
+
+// Загрузка смен для отчетов за выбранный месяц
+async function loadShiftsForReports() {
+    console.log('📊 Загрузка смен для отчетов за:', reportsMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
+    
+    const startOfMonth = new Date(reportsMonth.getFullYear(), reportsMonth.getMonth(), 1);
+    const endOfMonth = new Date(reportsMonth.getFullYear(), reportsMonth.getMonth() + 1, 0);
+    
+    try {
+        const { data: shiftsData, error } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .gte('shift_date', startOfMonth.toISOString().split('T')[0])
+            .lte('shift_date', endOfMonth.toISOString().split('T')[0])
+            .order('shift_date');
+            
+        if (error) {
+            console.error('❌ Ошибка загрузки смен для отчетов:', error);
+            reportsShifts = [];
+            return;
+        }
+        
+        reportsShifts = shiftsData || [];
+        console.log('✅ Загружено смен для отчетов:', reportsShifts.length);
+        
+        // Загружаем продукты для всех смен
+        for (const shift of reportsShifts) {
+            if (shift.is_workday) {
+                shift.shift_products = await loadShiftProducts(shift.id);
+            }
+        }
+        
+        console.log('✅ Продукты смен для отчетов загружены');
+        
+    } catch (error) {
+        console.error('❌ Критическая ошибка загрузки смен для отчетов:', error);
+        reportsShifts = [];
+    }
 }
 
 // Функция для загрузки продуктов конкретной смены с именами
@@ -4025,14 +4072,13 @@ function loadSettings() {
 }
 
 // Отчеты
-function generateReports() {
+async function generateReports() {
+    console.log('📊 Генерация отчетов за:', reportsMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
+    
     updateReportsMonth();
     
-    const monthShifts = shifts.filter(shift => {
-        const shiftDate = new Date(shift.shift_date);
-        return shiftDate.getMonth() === currentMonth.getMonth() && 
-               shiftDate.getFullYear() === currentMonth.getFullYear();
-    });
+    // Загружаем смены для выбранного месяца отчетов
+    await loadShiftsForReports();
     
     // Статистика по продажам
     const salesStats = {};
@@ -4041,12 +4087,12 @@ function generateReports() {
     let totalTips = 0;
     let grossEarnings = 0;
     
-    monthShifts.forEach(shift => {
+    reportsShifts.forEach(shift => {
         if (shift.is_workday) {
-            totalRevenue += shift.revenue_generated;
-            totalPayout += shift.fixed_payout;
-            totalTips += shift.tips;
-            grossEarnings += shift.earnings;
+            totalRevenue += shift.revenue_generated || 0;
+            totalPayout += shift.fixed_payout || 0;
+            totalTips += shift.tips || 0;
+            grossEarnings += shift.earnings || 0;
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
@@ -4057,8 +4103,8 @@ function generateReports() {
                             revenue: 0
                         };
                     }
-                    salesStats[productName].quantity += sp.quantity;
-                    salesStats[productName].revenue += sp.quantity * sp.price_snapshot;
+                    salesStats[productName].quantity += sp.quantity || 0;
+                    salesStats[productName].revenue += (sp.quantity || 0) * (sp.price_snapshot || 0);
                 });
             }
         }
@@ -4068,15 +4114,19 @@ function generateReports() {
     const salesContainer = document.getElementById('sales-stats');
     salesContainer.innerHTML = '';
     
-    Object.entries(salesStats).forEach(([productName, stats]) => {
-        const statElement = document.createElement('div');
-        statElement.className = 'stat-item';
-        statElement.innerHTML = `
-            <span class="stat-label">${productName}:</span>
-            <span class="stat-value">${stats.quantity} шт. (${formatCurrency(stats.revenue)})</span>
-        `;
-        salesContainer.appendChild(statElement);
-    });
+    if (Object.keys(salesStats).length === 0) {
+        salesContainer.innerHTML = '<div class="stat-item"><span class="stat-label">Нет данных о продажах за выбранный месяц</span></div>';
+    } else {
+        Object.entries(salesStats).forEach(([productName, stats]) => {
+            const statElement = document.createElement('div');
+            statElement.className = 'stat-item';
+            statElement.innerHTML = `
+                <span class="stat-label">${productName}:</span>
+                <span class="stat-value">${stats.quantity} шт. (${formatCurrency(stats.revenue)})</span>
+            `;
+            salesContainer.appendChild(statElement);
+        });
+    }
     
     // Обновляем финансовую статистику
     document.getElementById('total-revenue').textContent = formatCurrency(totalRevenue);
@@ -4085,6 +4135,14 @@ function generateReports() {
     document.getElementById('gross-earnings').textContent = formatCurrency(grossEarnings);
     
     calculateNetEarnings();
+    
+    console.log('✅ Отчеты сгенерированы:', {
+        totalRevenue,
+        totalPayout,
+        totalTips,
+        grossEarnings,
+        shiftsCount: reportsShifts.length
+    });
 }
 
 function calculateNetEarnings() {
@@ -4096,18 +4154,18 @@ function calculateNetEarnings() {
 }
 
 function exportData() {
-    // Простой экспорт в CSV
+    // Простой экспорт в CSV для отчетов
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
-    shifts.forEach(shift => {
-        csv += `${shift.shift_date},${shift.venues?.name || ''},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated},${shift.fixed_payout},${shift.tips},${shift.earnings}\n`;
+    reportsShifts.forEach(shift => {
+        csv += `${shift.shift_date},${shift.venues?.name || ''},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `shifts_${currentMonth.getFullYear()}_${currentMonth.getMonth() + 1}.csv`;
+    a.download = `shifts_${reportsMonth.getFullYear()}_${reportsMonth.getMonth() + 1}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 }
