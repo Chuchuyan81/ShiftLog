@@ -245,6 +245,52 @@ async function registerServiceWorker() {
     }
 }
 
+// Функция для полной очистки кэша и переустановки приложения
+async function clearAllCachesAndReload() {
+    console.log('🔄 Начинаю полную очистку кэша...');
+    
+    try {
+        // Очищаем все кэши
+        if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            console.log('Найдено кэшей:', cacheNames.length);
+            
+            for (const cacheName of cacheNames) {
+                console.log(`Удаляю кэш: ${cacheName}`);
+                await caches.delete(cacheName);
+            }
+        }
+        
+        // Удаляем все Service Workers
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            console.log('Найдено Service Workers:', registrations.length);
+            
+            for (const registration of registrations) {
+                console.log('Удаляю Service Worker:', registration.scope);
+                await registration.unregister();
+            }
+        }
+        
+        // Очищаем localStorage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        console.log('✅ Кэш полностью очищен');
+        
+        // Принудительная перезагрузка
+        window.location.reload(true);
+        
+    } catch (error) {
+        console.error('❌ Ошибка при очистке кэша:', error);
+        // Все равно перезагружаем
+        window.location.reload(true);
+    }
+}
+
+// Делаем функцию глобальной для доступа из HTML
+window.clearAllCachesAndReload = clearAllCachesAndReload;
+
 // Функция для повторной загрузки библиотеки Supabase
 async function ensureSupabaseLoaded() {
     if (window.supabase) {
@@ -252,53 +298,16 @@ async function ensureSupabaseLoaded() {
         return true;
     }
     
-    console.log('🔄 PWA: Загружаю библиотеку Supabase...');
+    console.log('🔄 PWA: Библиотека Supabase не найдена');
     
-    try {
-        // Динамически загружаем библиотеку Supabase
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-        script.async = true;
-        
-        const loadPromise = new Promise((resolve, reject) => {
-            script.onload = () => {
-                console.log('✅ PWA: Библиотека Supabase загружена');
-                resolve(true);
-            };
-            script.onerror = () => {
-                console.error('❌ PWA: Ошибка загрузки библиотеки Supabase');
-                reject(new Error('Не удалось загрузить библиотеку Supabase'));
-            };
-        });
-        
-        document.head.appendChild(script);
-        
-        // Ждем загрузки с таймаутом
-        const timeout = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Таймаут загрузки библиотеки Supabase')), 10000);
-        });
-        
-        await Promise.race([loadPromise, timeout]);
-        
-        // Дополнительная проверка
-        if (window.supabase) {
-            return true;
-        } else {
-            throw new Error('Библиотека Supabase не доступна после загрузки');
-        }
-        
-    } catch (error) {
-        console.error('❌ PWA: Критическая ошибка загрузки Supabase:', error);
-        return false;
-    }
+    // Если Supabase не загружен, предлагаем пользователю очистить кэш
+    showMessage('Ошибка загрузки', 'Библиотека Supabase не загружена. Попробуйте очистить кэш и обновить страницу.');
+    return false;
 }
 
 // Функция инициализации PWA
 function initializePWA() {
     console.log('🚀 PWA: Инициализация PWA функций...');
-    
-    // Регистрируем Service Worker
-    registerServiceWorker();
     
     // Проверяем, установлено ли приложение
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
@@ -317,6 +326,13 @@ function initializePWA() {
     
     // Обрабатываем URL параметры для шорткатов
     handlePWAShortcuts();
+    
+    // ВРЕМЕННО ОТКЛЮЧЕН Service Worker для устранения проблем с загрузкой
+    // setTimeout(() => {
+    //     registerServiceWorker();
+    // }, 3000);
+    
+    console.log('⚠️ PWA: Service Worker временно отключен для устранения проблем');
 }
 
 // Обработка URL параметров для PWA шорткатов
@@ -1034,7 +1050,12 @@ async function initializeApp() {
         setupAuthStateListener();
         console.log('✅ Auth listener настроен');
         
-        console.log('🔍 Шаг 12: Отмечаем инициализацию как завершенную...');
+        console.log('🔍 Шаг 12: Инициализируем PWA...');
+        // Инициализируем PWA ПОСЛЕ основной инициализации
+        initializePWA();
+        console.log('✅ PWA инициализирован');
+        
+        console.log('🔍 Шаг 13: Отмечаем инициализацию как завершенную...');
         // Отмечаем, что инициализация завершена
         isInitialized = true;
         console.log('✅ isInitialized = true');
@@ -1392,6 +1413,13 @@ function setupSettingsListeners() {
         currency = e.target.value;
         localStorage.setItem('currency', currency);
         updateCurrencyDisplay();
+    });
+    
+    // Очистка кэша
+    document.getElementById('clear-cache-btn').addEventListener('click', () => {
+        if (confirm('Это действие очистит весь кэш и перезагрузит приложение. Продолжить?')) {
+            clearAllCachesAndReload();
+        }
     });
     
 

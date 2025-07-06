@@ -209,7 +209,15 @@
                         </div>
                     </div>
                     
-
+                    <div class="settings-section">
+                        <h3>Устранение неполадок</h3>
+                        <div class="form-group">
+                            <button class="btn btn-warning" id="clear-cache-btn">Очистить кэш и перезагрузить</button>
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                Используйте, если приложение не загружается или работает некорректно
+                            </small>
+                        </div>
+                    </div>
                     
                     <button class="btn btn-danger" id="logout-btn">Выход</button>
                 </div>
@@ -377,19 +385,114 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Попытка загрузки Supabase из множественных CDN -->
     <script>
-        // Отладка загрузки Supabase
-        console.log('Проверка загрузки Supabase после CDN:', {
-            supabaseExists: !!window.supabase,
-            supabaseType: typeof window.supabase,
-            supabaseCreateClient: !!(window.supabase && window.supabase.createClient)
+        console.log('🔄 Начинаю загрузку Supabase...');
+        
+        // Функция для загрузки скрипта с Promise
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.async = true;
+                script.src = url;
+                
+                script.onload = () => {
+                    console.log(`✅ Успешно загружен скрипт: ${url}`);
+                    resolve();
+                };
+                
+                script.onerror = () => {
+                    console.error(`❌ Ошибка загрузки скрипта: ${url}`);
+                    reject(new Error(`Failed to load ${url}`));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Попытка загрузки с множественных CDN
+        async function loadSupabase() {
+            const cdnUrls = [
+                'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+                'https://cdn.skypack.dev/@supabase/supabase-js@2',
+                'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+                'https://esm.sh/@supabase/supabase-js@2'
+            ];
+            
+            for (const url of cdnUrls) {
+                try {
+                    console.log(`🔄 Попытка загрузки с: ${url}`);
+                    await loadScript(url);
+                    
+                    // Проверяем что Supabase доступен
+                    if (window.supabase || window.SupabaseJS) {
+                        if (window.SupabaseJS && !window.supabase) {
+                            window.supabase = window.SupabaseJS;
+                        }
+                        console.log('✅ Supabase успешно загружен и доступен');
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ CDN ${url} недоступен, пробуем следующий...`);
+                    continue;
+                }
+            }
+            
+            console.error('❌ Все CDN недоступны');
+            return false;
+        }
+        
+        // Запускаем загрузку
+        loadSupabase().then(success => {
+            if (!success) {
+                console.error('❌ Критическая ошибка: Supabase не загружен');
+                
+                // Показываем сообщение пользователю
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.innerHTML = `
+                            <div style="text-align: center; padding: 40px;">
+                                <h2>⚠️ Проблема с подключением</h2>
+                                <p>Не удается загрузить необходимые компоненты.</p>
+                                <p>Проверьте подключение к интернету и попробуйте:</p>
+                                <button onclick="location.reload()" style="margin: 10px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    Обновить страницу
+                                </button>
+                                <button onclick="clearCacheAndReload()" style="margin: 10px; padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    Очистить кэш и обновить
+                                </button>
+                            </div>
+                        `;
+                    }
+                }, 1000);
+            }
         });
         
-        if (!window.supabase) {
-            console.error('❌ Supabase не загрузился из основного CDN');
-        } else {
-            console.log('✅ Supabase успешно загружен из основного CDN');
+        // Функция для очистки кэша
+        function clearCacheAndReload() {
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                }).then(() => {
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(registrations => {
+                            registrations.forEach(registration => {
+                                registration.unregister();
+                            });
+                        }).then(() => {
+                            window.location.reload(true);
+                        });
+                    } else {
+                        window.location.reload(true);
+                    }
+                });
+            } else {
+                window.location.reload(true);
+            }
         }
     </script>
     <!-- Принудительный механизм скрытия загрузки -->

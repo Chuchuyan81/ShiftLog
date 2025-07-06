@@ -1,5 +1,5 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.2.0';
+const CACHE_NAME = 'shift-log-v1.3.0';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -8,13 +8,13 @@ const urlsToCache = [
     '/manifest.json',
     '/icon-192.svg',
     '/icon-512.svg',
-    '/favicon.ico',
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+    '/favicon.ico'
+    // CDN библиотеки не кэшируем принудительно
 ];
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.2.0');
+    console.log('SW: Устанавливаю Service Worker v1.3.0');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -23,16 +23,18 @@ self.addEventListener('install', function(event) {
             })
             .catch(function(error) {
                 console.error('SW: Ошибка при кэшировании:', error);
+                // Не прерываем установку из-за ошибок кэширования
+                return Promise.resolve();
             })
     );
     
-    // Принудительно активируем новую версию
-    self.skipWaiting();
+    // НЕ активируем принудительно - дожидаемся закрытия старых страниц
+    // self.skipWaiting();
 });
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.2.0');
+    console.log('SW: Активирую Service Worker v1.3.0');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
@@ -43,33 +45,33 @@ self.addEventListener('activate', function(event) {
                     }
                 })
             );
-        }).then(function() {
-            // Берем под контроль все открытые страницы
-            return self.clients.claim();
         })
+        // НЕ берем под контроль существующие страницы сразу
+        // .then(function() {
+        //     return self.clients.claim();
+        // })
     );
 });
 
 // Обработка запросов
 self.addEventListener('fetch', function(event) {
-    // Пропускаем запросы к Supabase API - они должны идти онлайн
-    if (event.request.url.includes('supabase.co')) {
-        console.log('SW: Пропускаю запрос к Supabase:', event.request.url);
-        event.respondWith(fetch(event.request));
-        return;
-    }
+    const url = event.request.url;
     
-    // Пропускаем внешние CDN запросы - они должны идти онлайн
-    if (event.request.url.includes('cdn.jsdelivr.net')) {
-        console.log('SW: Пропускаю CDN запрос:', event.request.url);
-        event.respondWith(fetch(event.request));
+    // КРИТИЧЕСКИ ВАЖНО: Пропускаем ВСЕ внешние ресурсы без вмешательства
+    if (url.includes('supabase.co') || 
+        url.includes('cdn.jsdelivr.net') || 
+        url.includes('unpkg.com') ||
+        url.includes('cdnjs.cloudflare.com') ||
+        !url.startsWith(self.location.origin)) {
+        
+        console.log('SW: Пропускаю внешний ресурс:', url);
+        // НЕ используем event.respondWith для внешних ресурсов
         return;
     }
     
     // Пропускаем POST, PUT, DELETE запросы - они должны идти онлайн
     if (event.request.method !== 'GET') {
-        console.log('SW: Пропускаю не-GET запрос:', event.request.method, event.request.url);
-        event.respondWith(fetch(event.request));
+        console.log('SW: Пропускаю не-GET запрос:', event.request.method, url);
         return;
     }
     
@@ -148,4 +150,4 @@ self.addEventListener('unhandledrejection', function(event) {
     console.error('SW: Необработанное отклонение промиса:', event.reason);
 });
 
-console.log('SW: Service Worker v1.2.0 загружен'); 
+console.log('SW: Service Worker v1.3.0 загружен'); 
