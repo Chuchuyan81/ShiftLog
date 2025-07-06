@@ -716,4 +716,68 @@ body {
 .product-details {
     color: #6b7280;
     font-family: monospace;
+}
+
+/* Кнопка установки PWA */
+.install-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s ease;
+    animation: pulse 2s infinite;
+}
+
+.install-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    animation: none;
+}
+
+.install-btn:active {
+    transform: translateY(0);
+}
+
+.install-icon {
+    font-size: 14px;
+}
+
+.install-text {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+}
+
+/* Скрываем кнопку установки на больших экранах */
+@media (min-width: 768px) {
+    .install-btn {
+        display: none !important;
+    }
+}
+
+/* Адаптивная навигация с кнопкой установки */
+@media (max-width: 480px) {
+    .nav-bar {
+        grid-template-columns: 1fr 1fr 1fr auto;
+    }
+    
+    .install-btn {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+    
+    .install-text {
+        font-size: 9px;
+    }
 } 

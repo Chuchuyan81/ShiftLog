@@ -13,10 +13,31 @@
     <meta name="application-name" content="Журнал Рабочих Смен">
     <meta name="robots" content="index, follow">
     <meta name="googlebot" content="index, follow">
+    
+    <!-- PWA Meta теги -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ShiftLog">
+    <meta name="msapplication-TileColor" content="#2563eb">
+    <meta name="msapplication-config" content="browserconfig.xml">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Apple Touch иконки -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-192.svg">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-192.svg">
+    <link rel="apple-touch-icon" sizes="120x120" href="icon-192.svg">
+    
+    <!-- Стандартные иконки -->
+    <link rel="icon" type="image/svg+xml" href="icon-192.svg">
+    <link rel="shortcut icon" href="favicon.ico">
+    
+    <!-- Open Graph -->
     <meta property="og:title" content="Журнал Рабочих Смен">
     <meta property="og:description" content="Персональное приложение для учета рабочих смен">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://shiftlog.netlify.app">
+    <meta property="og:image" content="https://shiftlog.netlify.app/icon-512.svg">
     <link rel="canonical" href="https://shiftlog.netlify.app">
 </head>
 <body>
@@ -60,6 +81,11 @@
                 <button class="nav-btn active" data-screen="shifts">Журнал</button>
                 <button class="nav-btn" data-screen="reports">Итоги</button>
                 <button class="nav-btn" data-screen="settings">Настройки</button>
+                <!-- Кнопка установки PWA -->
+                <button class="nav-btn install-btn" id="install-btn" style="display: none;">
+                    <span class="install-icon">📱</span>
+                    <span class="install-text">Установить</span>
+                </button>
             </nav>
 
             <!-- Экран журнала смен -->

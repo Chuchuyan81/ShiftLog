@@ -76,6 +76,191 @@ window.forceInitialize = function() {
 console.log('✅ Экстренные функции созданы: emergencyDiagnose(), emergencyReload(), emergencyHideLoading()');
 console.log('✅ Базовые функции созданы: checkAppState(), forceInitialize()');
 
+// PWA ФУНКЦИОНАЛЬНОСТЬ
+let deferredPrompt;
+let installButton;
+
+// Обработка события beforeinstallprompt
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('💾 PWA: Событие beforeinstallprompt получено');
+    
+    // Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    
+    // Сохраняем событие для последующего использования
+    deferredPrompt = e;
+    
+    // Показываем кнопку установки
+    showInstallButton();
+});
+
+// Обработка успешной установки PWA
+window.addEventListener('appinstalled', (e) => {
+    console.log('🎉 PWA: Приложение установлено');
+    
+    // Скрываем кнопку установки
+    hideInstallButton();
+    
+    // Сбрасываем сохраненное событие
+    deferredPrompt = null;
+    
+    // Показываем уведомление пользователю
+    showMessage('Успешно!', 'Приложение установлено на ваше устройство');
+});
+
+// Функция показа кнопки установки
+function showInstallButton() {
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+        installBtn.style.display = 'flex';
+        console.log('✅ PWA: Кнопка установки показана');
+    }
+}
+
+// Функция скрытия кнопки установки
+function hideInstallButton() {
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+        installBtn.style.display = 'none';
+        console.log('✅ PWA: Кнопка установки скрыта');
+    }
+}
+
+// Функция обработки клика на кнопку установки
+async function handleInstallClick() {
+    console.log('🔄 PWA: Обработка клика на кнопку установки');
+    
+    if (!deferredPrompt) {
+        console.log('⚠️ PWA: Событие beforeinstallprompt недоступно');
+        showMessage('Информация', 'Приложение уже установлено или не поддерживается вашим браузером');
+        return;
+    }
+    
+    try {
+        // Показываем диалог установки
+        deferredPrompt.prompt();
+        
+        // Ожидаем ответ пользователя
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        console.log(`📱 PWA: Выбор пользователя: ${outcome}`);
+        
+        if (outcome === 'accepted') {
+            console.log('✅ PWA: Пользователь принял установку');
+        } else {
+            console.log('❌ PWA: Пользователь отклонил установку');
+        }
+        
+        // Сбрасываем сохраненное событие
+        deferredPrompt = null;
+        
+        // Скрываем кнопку установки
+        hideInstallButton();
+        
+    } catch (error) {
+        console.error('❌ PWA: Ошибка при установке:', error);
+        showMessage('Ошибка', 'Не удалось установить приложение');
+    }
+}
+
+// Регистрация Service Worker
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        try {
+            console.log('🔄 PWA: Регистрация Service Worker...');
+            
+            const registration = await navigator.serviceWorker.register('/sw.js', {
+                scope: '/'
+            });
+            
+            console.log('✅ PWA: Service Worker зарегистрирован:', registration.scope);
+            
+            // Проверяем обновления
+            registration.addEventListener('updatefound', () => {
+                console.log('🔄 PWA: Найдено обновление Service Worker');
+                
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            console.log('🔄 PWA: Новая версия доступна');
+                            showMessage('Обновление', 'Доступна новая версия приложения. Перезагрузите страницу.');
+                        }
+                    }
+                });
+            });
+            
+        } catch (error) {
+            console.error('❌ PWA: Ошибка регистрации Service Worker:', error);
+        }
+    } else {
+        console.log('⚠️ PWA: Service Worker не поддерживается');
+    }
+}
+
+// Функция инициализации PWA
+function initializePWA() {
+    console.log('🚀 PWA: Инициализация PWA функций...');
+    
+    // Регистрируем Service Worker
+    registerServiceWorker();
+    
+    // Проверяем, установлено ли приложение
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('📱 PWA: Приложение запущено в standalone режиме');
+        hideInstallButton();
+    } else {
+        console.log('🌐 PWA: Приложение запущено в браузере');
+    }
+    
+    // Обрабатываем URL параметры для шорткатов
+    handlePWAShortcuts();
+}
+
+// Обработка URL параметров для PWA шорткатов
+function handlePWAShortcuts() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    const screen = urlParams.get('screen');
+    
+    if (action === 'add-shift') {
+        console.log('🔥 PWA: Обработка шортката добавления смены');
+        // Устанавливаем флаг для открытия модального окна после загрузки
+        window.pwaShortcutAction = 'add-shift';
+    }
+    
+    if (screen) {
+        console.log(`🔥 PWA: Обработка шортката перехода на экран: ${screen}`);
+        // Устанавливаем флаг для переключения экрана после загрузки
+        window.pwaShortcutScreen = screen;
+    }
+}
+
+// Выполнение отложенных PWA действий
+function executePWAShortcuts() {
+    if (window.pwaShortcutAction === 'add-shift') {
+        console.log('🔥 PWA: Выполняем отложенное действие - добавление смены');
+        setTimeout(() => {
+            const addShiftBtn = document.getElementById('add-shift-btn');
+            if (addShiftBtn) {
+                addShiftBtn.click();
+            }
+        }, 1000);
+        window.pwaShortcutAction = null;
+    }
+    
+    if (window.pwaShortcutScreen) {
+        console.log(`🔥 PWA: Выполняем отложенное действие - переход на экран: ${window.pwaShortcutScreen}`);
+        setTimeout(() => {
+            switchScreen(window.pwaShortcutScreen);
+        }, 500);
+        window.pwaShortcutScreen = null;
+    }
+}
+
+// Запускаем инициализацию PWA
+initializePWA();
+
 // Проверяем загрузку библиотеки Supabase
 console.log('Проверка загрузки Supabase:', {
     windowSupabase: !!window.supabase,
@@ -924,6 +1109,8 @@ function showMainApp() {
     document.getElementById('main-app').classList.remove('hidden');
     console.log('🎯 Обновляем отображение месяца...');
     updateMonthDisplay();
+    console.log('🎯 Выполняем PWA шорткаты...');
+    executePWAShortcuts();
     console.log('✅ showMainApp завершена');
 }
 
@@ -946,6 +1133,9 @@ function setupEventListeners() {
     
     // Модальные окна
     setupModalListeners();
+    
+    // PWA установка
+    setupPWAListeners();
 }
 
 function setupAuthListeners() {
@@ -975,9 +1165,20 @@ function setupNavigationListeners() {
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const screen = e.target.dataset.screen;
-            switchScreen(screen);
+            if (screen) {
+                switchScreen(screen);
+            }
         });
     });
+}
+
+function setupPWAListeners() {
+    // Обработчик кнопки установки PWA
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+        installBtn.addEventListener('click', handleInstallClick);
+        console.log('✅ PWA: Обработчик кнопки установки добавлен');
+    }
 }
 
 function setupShiftsListeners() {
