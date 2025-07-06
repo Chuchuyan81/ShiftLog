@@ -126,6 +126,24 @@ function hideInstallButton() {
     }
 }
 
+// Функция показа кнопки обновления
+function showUpdateButton() {
+    const updateBtn = document.getElementById('update-btn');
+    if (updateBtn) {
+        updateBtn.style.display = 'flex';
+        console.log('✅ PWA: Кнопка обновления показана');
+    }
+}
+
+// Функция скрытия кнопки обновления
+function hideUpdateButton() {
+    const updateBtn = document.getElementById('update-btn');
+    if (updateBtn) {
+        updateBtn.style.display = 'none';
+        console.log('✅ PWA: Кнопка обновления скрыта');
+    }
+}
+
 // Функция обработки клика на кнопку установки
 async function handleInstallClick() {
     console.log('🔄 PWA: Обработка клика на кнопку установки');
@@ -160,6 +178,35 @@ async function handleInstallClick() {
     } catch (error) {
         console.error('❌ PWA: Ошибка при установке:', error);
         showMessage('Ошибка', 'Не удалось установить приложение');
+    }
+}
+
+// Функция обработки клика на кнопку обновления
+async function handleUpdateClick() {
+    console.log('🔄 PWA: Обработка клика на кнопку обновления');
+    
+    try {
+        // Обновляем Service Worker
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                console.log('🔄 PWA: Обновляю Service Worker...');
+                await registration.update();
+                
+                // Перезагружаем страницу для применения обновлений
+                window.location.reload();
+            } else {
+                console.log('⚠️ PWA: Service Worker не найден, перезагружаю страницу');
+                window.location.reload();
+            }
+        } else {
+            console.log('⚠️ PWA: Service Worker не поддерживается, перезагружаю страницу');
+            window.location.reload();
+        }
+        
+    } catch (error) {
+        console.error('❌ PWA: Ошибка при обновлении:', error);
+        showMessage('Ошибка', 'Не удалось обновить приложение. Попробуйте перезагрузить страницу.');
     }
 }
 
@@ -198,6 +245,54 @@ async function registerServiceWorker() {
     }
 }
 
+// Функция для повторной загрузки библиотеки Supabase
+async function ensureSupabaseLoaded() {
+    if (window.supabase) {
+        console.log('✅ PWA: Библиотека Supabase уже загружена');
+        return true;
+    }
+    
+    console.log('🔄 PWA: Загружаю библиотеку Supabase...');
+    
+    try {
+        // Динамически загружаем библиотеку Supabase
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        script.async = true;
+        
+        const loadPromise = new Promise((resolve, reject) => {
+            script.onload = () => {
+                console.log('✅ PWA: Библиотека Supabase загружена');
+                resolve(true);
+            };
+            script.onerror = () => {
+                console.error('❌ PWA: Ошибка загрузки библиотеки Supabase');
+                reject(new Error('Не удалось загрузить библиотеку Supabase'));
+            };
+        });
+        
+        document.head.appendChild(script);
+        
+        // Ждем загрузки с таймаутом
+        const timeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Таймаут загрузки библиотеки Supabase')), 10000);
+        });
+        
+        await Promise.race([loadPromise, timeout]);
+        
+        // Дополнительная проверка
+        if (window.supabase) {
+            return true;
+        } else {
+            throw new Error('Библиотека Supabase не доступна после загрузки');
+        }
+        
+    } catch (error) {
+        console.error('❌ PWA: Критическая ошибка загрузки Supabase:', error);
+        return false;
+    }
+}
+
 // Функция инициализации PWA
 function initializePWA() {
     console.log('🚀 PWA: Инициализация PWA функций...');
@@ -209,8 +304,15 @@ function initializePWA() {
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
         console.log('📱 PWA: Приложение запущено в standalone режиме');
         hideInstallButton();
+        showUpdateButton();
+        
+        // Дополнительная диагностика для PWA режима
+        setTimeout(() => {
+            testSupabaseConnectionInPWA();
+        }, 2000);
     } else {
         console.log('🌐 PWA: Приложение запущено в браузере');
+        hideUpdateButton();
     }
     
     // Обрабатываем URL параметры для шорткатов
@@ -255,6 +357,60 @@ function executePWAShortcuts() {
             switchScreen(window.pwaShortcutScreen);
         }, 500);
         window.pwaShortcutScreen = null;
+    }
+}
+
+// Диагностика подключения к Supabase в PWA режиме
+async function testSupabaseConnectionInPWA() {
+    console.log('🔍 PWA: Тестирую подключение к Supabase...');
+    
+    try {
+        // Проверяем, загружена ли библиотека Supabase
+        if (!window.supabase) {
+            console.warn('⚠️ PWA: Библиотека Supabase не загружена, пытаюсь перезагрузить...');
+            
+            const loaded = await ensureSupabaseLoaded();
+            if (!loaded) {
+                showMessage('Ошибка PWA', 'Библиотека Supabase не загружена. Проверьте интернет-соединение и попробуйте обновить приложение.');
+                return;
+            }
+        }
+        
+        // Проверяем, создан ли клиент Supabase
+        if (!supabase) {
+            console.warn('⚠️ PWA: Клиент Supabase не создан, пытаюсь создать...');
+            
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: {
+                        autoRefreshToken: true,
+                        persistSession: true,
+                        detectSessionInUrl: true,
+                        flowType: 'pkce'
+                    }
+                });
+                console.log('✅ PWA: Клиент Supabase создан');
+            } catch (createError) {
+                console.error('❌ PWA: Ошибка создания клиента Supabase:', createError);
+                showMessage('Ошибка PWA', 'Не удается создать клиент Supabase. Попробуйте обновить приложение.');
+                return;
+            }
+        }
+        
+        // Проверяем подключение к Supabase
+        const { data, error } = await supabase.from('venues').select('count', { count: 'exact' });
+        
+        if (error) {
+            console.error('❌ PWA: Ошибка подключения к Supabase:', error);
+            showMessage('Ошибка подключения', 'Не удается подключиться к базе данных. Проверьте интернет-соединение.');
+            return;
+        }
+        
+        console.log('✅ PWA: Подключение к Supabase успешно');
+        
+    } catch (error) {
+        console.error('❌ PWA: Критическая ошибка при тестировании Supabase:', error);
+        showMessage('Критическая ошибка', 'Возникла ошибка при подключении к базе данных. Попробуйте перезапустить приложение.');
     }
 }
 
@@ -1178,6 +1334,13 @@ function setupPWAListeners() {
     if (installBtn) {
         installBtn.addEventListener('click', handleInstallClick);
         console.log('✅ PWA: Обработчик кнопки установки добавлен');
+    }
+    
+    // Обработчик кнопки обновления PWA
+    const updateBtn = document.getElementById('update-btn');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', handleUpdateClick);
+        console.log('✅ PWA: Обработчик кнопки обновления добавлен');
     }
 }
 

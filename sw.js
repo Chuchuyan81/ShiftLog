@@ -1,5 +1,5 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.1.0';
+const CACHE_NAME = 'shift-log-v1.2.0';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.1.0');
+    console.log('SW: Устанавливаю Service Worker v1.2.0');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -32,7 +32,7 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.1.0');
+    console.log('SW: Активирую Service Worker v1.2.0');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
@@ -54,11 +54,22 @@ self.addEventListener('activate', function(event) {
 self.addEventListener('fetch', function(event) {
     // Пропускаем запросы к Supabase API - они должны идти онлайн
     if (event.request.url.includes('supabase.co')) {
+        console.log('SW: Пропускаю запрос к Supabase:', event.request.url);
+        event.respondWith(fetch(event.request));
+        return;
+    }
+    
+    // Пропускаем внешние CDN запросы - они должны идти онлайн
+    if (event.request.url.includes('cdn.jsdelivr.net')) {
+        console.log('SW: Пропускаю CDN запрос:', event.request.url);
+        event.respondWith(fetch(event.request));
         return;
     }
     
     // Пропускаем POST, PUT, DELETE запросы - они должны идти онлайн
     if (event.request.method !== 'GET') {
+        console.log('SW: Пропускаю не-GET запрос:', event.request.method, event.request.url);
+        event.respondWith(fetch(event.request));
         return;
     }
     
@@ -137,4 +148,4 @@ self.addEventListener('unhandledrejection', function(event) {
     console.error('SW: Необработанное отклонение промиса:', event.reason);
 });
 
-console.log('SW: Service Worker v1.1.0 загружен'); 
+console.log('SW: Service Worker v1.2.0 загружен'); 
