@@ -1650,10 +1650,24 @@ async function handleAuth(e) {
         
         if (result.error) {
             console.error('Ошибка аутентификации:', result.error);
+            console.error('Код ошибки:', result.error.status);
+            console.error('Детали:', result.error);
             
             // Специальная обработка ошибок отправки email
             if (result.error.message.includes('Error sending confirmation email')) {
                 showMessage('Ошибка отправки email', 'Не удалось отправить письмо подтверждения. Попробуйте еще раз или обратитесь к администратору.');
+                return;
+            }
+            
+            // Обработка ошибки 500 (Internal Server Error)
+            if (result.error.status === 500) {
+                showMessage('Ошибка сервера', 'Временная проблема на сервере. Попробуйте позже или обратитесь к администратору.');
+                return;
+            }
+            
+            // Обработка других ошибок регистрации
+            if (result.error.status === 422 && result.error.message.includes('User already registered')) {
+                showMessage('Ошибка регистрации', 'Пользователь с таким email уже зарегистрирован. Попробуйте войти.');
                 return;
             }
             
