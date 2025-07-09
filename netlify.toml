@@ -42,7 +42,13 @@
 
 # Принудительное HTTPS
 [[redirects]]
-  from = "http://shift-log-app.netlify.app/*"
-  to = "https://shift-log-app.netlify.app/:splat"
+  from = "http://shiftlog.netlify.app/*"
+  to = "https://shiftlog.netlify.app/:splat"
   status = 301
-  force = true 
+  force = true
+
+# SPA перенаправления для всех маршрутов
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 
