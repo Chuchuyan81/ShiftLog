@@ -1649,12 +1649,26 @@ async function handleAuth(e) {
         }
         
         if (result.error) {
+            console.error('Ошибка аутентификации:', result.error);
+            
+            // Специальная обработка ошибок отправки email
+            if (result.error.message.includes('Error sending confirmation email')) {
+                showMessage('Ошибка отправки email', 'Не удалось отправить письмо подтверждения. Попробуйте еще раз или обратитесь к администратору.');
+                return;
+            }
+            
             throw result.error;
         }
         
-        if (!isLogin && !result.data.user.email_confirmed_at) {
-            showMessage('Успех', 'Проверьте email для подтверждения регистрации');
-            return;
+        if (!isLogin && result.data.user) {
+            // Проверяем, нужно ли подтверждение email
+            if (!result.data.user.email_confirmed_at) {
+                showMessage('Успех', 'Проверьте email для подтверждения регистрации');
+                return;
+            } else {
+                // Если подтверждение email отключено, пользователь сразу авторизован
+                showMessage('Успех', 'Регистрация успешна! Добро пожаловать!');
+            }
         }
         
         currentUser = result.data.user;
