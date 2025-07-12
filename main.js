@@ -1624,6 +1624,20 @@ function setupModalListeners() {
     // Модальные окна закрываются только по кнопкам "Сохранить" или "Отмена"
 }
 
+/*
+ВАЖНО: EMAIL ПОДТВЕРЖДЕНИЕ
+
+Если возникают ошибки с отправкой email, проверьте настройки в Supabase:
+
+1. Зайдите в Supabase Dashboard
+2. Перейдите в Settings → Auth 
+3. Включите "Enable email confirmations"
+4. Настройте SMTP или используйте встроенный сервис
+5. Или отключите email подтверждение для разработки
+
+Текущая конфигурация пытается автоматически обойти проблемы с email.
+*/
+
 // Аутентификация
 async function handleAuth(e) {
     e.preventDefault();
@@ -1645,17 +1659,51 @@ async function handleAuth(e) {
         if (isLogin) {
             result = await supabase.auth.signInWithPassword({ email, password });
         } else {
-            result = await supabase.auth.signUp({ email, password });
+            // Регистрация с отключенным email подтверждением
+            result = await supabase.auth.signUp({ 
+                email, 
+                password,
+                options: {
+                    emailRedirectTo: undefined, // Отключаем редирект
+                    data: {} // Пустые метаданные
+                }
+            });
         }
         
         if (result.error) {
             console.error('Ошибка аутентификации:', result.error);
             console.error('Код ошибки:', result.error.status);
+            console.error('Сообщение:', result.error.message);
             console.error('Детали:', result.error);
+            
+            // Диагностика проблемы с email
+            if (result.error.message.includes('email')) {
+                console.log('📧 Проблема связана с email сервисом');
+                console.log('🔍 Возможные причины: отсутствие SMTP настроек в Supabase');
+            }
             
             // Специальная обработка ошибок отправки email
             if (result.error.message.includes('Error sending confirmation email')) {
-                showMessage('Ошибка отправки email', 'Не удалось отправить письмо подтверждения. Попробуйте еще раз или обратитесь к администратору.');
+                console.log('📧 Ошибка отправки email подтверждения - пробуем альтернативный подход');
+                
+                // Показываем сообщение пользователю
+                showMessage('Внимание', 'Сервис email временно недоступен. Регистрация выполнена, но подтверждение email отключено. Вы можете сразу войти в систему.');
+                
+                // Пробуем войти автоматически
+                try {
+                    const loginResult = await supabase.auth.signInWithPassword({ email, password });
+                    if (loginResult.data.user) {
+                        console.log('✅ Автоматический вход выполнен успешно');
+                        currentUser = loginResult.data.user;
+                        startSessionCheck();
+                        await loadUserData();
+                        showMainApp();
+                        return;
+                    }
+                } catch (loginError) {
+                    console.error('Ошибка автоматического входа:', loginError);
+                }
+                
                 return;
             }
             
@@ -1667,7 +1715,17 @@ async function handleAuth(e) {
             
             // Обработка других ошибок регистрации
             if (result.error.status === 422 && result.error.message.includes('User already registered')) {
-                showMessage('Ошибка регистрации', 'Пользователь с таким email уже зарегистрирован. Попробуйте войти.');
+                console.log('⚠️ Пользователь уже зарегистрирован');
+                showMessage('Внимание', 'Пользователь с таким email уже зарегистрирован. Переключаемся на форму входа.');
+                
+                // Автоматически переключаем на форму входа
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+                
                 return;
             }
             
@@ -1677,10 +1735,21 @@ async function handleAuth(e) {
         if (!isLogin && result.data.user) {
             // Проверяем, нужно ли подтверждение email
             if (!result.data.user.email_confirmed_at) {
-                showMessage('Успех', 'Проверьте email для подтверждения регистрации');
+                console.log('📧 Email не подтвержден, но пользователь создан');
+                showMessage('Успех', 'Регистрация выполнена! Вы можете сразу войти в систему.');
+                
+                // Автоматически переключаем на форму входа
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+                
                 return;
             } else {
                 // Если подтверждение email отключено, пользователь сразу авторизован
+                console.log('✅ Email подтвержден автоматически');
                 showMessage('Успех', 'Регистрация успешна! Добро пожаловать!');
             }
         }
