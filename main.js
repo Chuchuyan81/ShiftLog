@@ -2949,10 +2949,9 @@ function toggleWorkFields() {
         updateProductFields();
     } else {
         workFields.style.display = 'none';
-        // Обнуляем поля при выборе выходного
+        // Обнуляем только поля, связанные с работой (заведение и продукты)
         document.getElementById('shift-venue').value = '';
-        document.getElementById('shift-payout').value = 0;
-        document.getElementById('shift-tips').value = 0;
+        // НЕ обнуляем shift-payout и shift-tips - они могут быть и в выходной день
         document.querySelectorAll('#product-fields input').forEach(input => {
             input.value = 0;
         });
@@ -4259,11 +4258,14 @@ async function generateReports() {
     let grossEarnings = 0;
     
     reportsShifts.forEach(shift => {
+        // Ставки за выход и чаевые учитываются всегда (и в рабочие, и в выходные дни)
+        totalPayout += shift.fixed_payout || 0;
+        totalTips += shift.tips || 0;
+        grossEarnings += shift.earnings || 0;
+        
         if (shift.is_workday) {
+            // Выручка учитывается только в рабочие дни
             totalRevenue += shift.revenue_generated || 0;
-            totalPayout += shift.fixed_payout || 0;
-            totalTips += shift.tips || 0;
-            grossEarnings += shift.earnings || 0;
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
