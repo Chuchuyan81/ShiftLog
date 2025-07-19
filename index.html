@@ -94,7 +94,7 @@
                 </button>
             </nav>
 
-            <!-- Экран журнала смен -->
+            <!-- Экран журнала -->
             <div id="shifts-screen" class="content-screen">
                 <div class="screen-header">
                     <h2>Журнал смен</h2>
@@ -102,6 +102,19 @@
                         <button class="btn btn-icon" id="prev-month">←</button>
                         <span id="current-month">Январь 2024</span>
                         <button class="btn btn-icon" id="next-month">→</button>
+                    </div>
+                </div>
+                
+                <div class="shifts-controls">
+                    <div class="sort-controls">
+                        <label for="sort-select">Сортировка:</label>
+                        <select id="sort-select">
+                            <option value="date-desc">По дате (новые сначала)</option>
+                            <option value="date-asc">По дате (старые сначала)</option>
+                            <option value="earnings-desc">По заработку (больше сначала)</option>
+                            <option value="earnings-asc">По заработку (меньше сначала)</option>
+                            <option value="venue">По заведению</option>
+                        </select>
                     </div>
                 </div>
                 

@@ -1470,6 +1470,11 @@ function setupShiftsListeners() {
     ['shift-venue', 'shift-payout', 'shift-tips'].forEach(id => {
         document.getElementById(id).addEventListener('input', calculateShiftTotals);
     });
+    
+    // Сортировка смен
+    document.getElementById('sort-select').addEventListener('change', () => {
+        renderShiftsList();
+    });
 }
 
 function setupSettingsListeners() {
@@ -2642,6 +2647,44 @@ async function loadShiftProducts(shiftId) {
     }
 }
 
+// Функция сортировки смен
+function sortShifts(shiftsToSort) {
+    const sortSelect = document.getElementById('sort-select');
+    const sortValue = sortSelect ? sortSelect.value : 'date-desc';
+    
+    console.log('🔄 Сортировка смен по критерию:', sortValue);
+    
+    const sortedShifts = [...shiftsToSort];
+    
+    switch (sortValue) {
+        case 'date-desc':
+            sortedShifts.sort((a, b) => new Date(b.shift_date) - new Date(a.shift_date));
+            break;
+        case 'date-asc':
+            sortedShifts.sort((a, b) => new Date(a.shift_date) - new Date(b.shift_date));
+            break;
+        case 'earnings-desc':
+            sortedShifts.sort((a, b) => (b.earnings || 0) - (a.earnings || 0));
+            break;
+        case 'earnings-asc':
+            sortedShifts.sort((a, b) => (a.earnings || 0) - (b.earnings || 0));
+            break;
+        case 'venue':
+            sortedShifts.sort((a, b) => {
+                const venueA = venues.find(v => v.id === a.venue_id)?.name || '';
+                const venueB = venues.find(v => v.id === b.venue_id)?.name || '';
+                return venueA.localeCompare(venueB, 'ru');
+            });
+            break;
+        default:
+            // По умолчанию сортируем по дате (новые сначала)
+            sortedShifts.sort((a, b) => new Date(b.shift_date) - new Date(a.shift_date));
+    }
+    
+    console.log('✅ Смены отсортированы');
+    return sortedShifts;
+}
+
 async function renderShiftsList() {
     console.log('🎨 === НАЧАЛО РЕНДЕРА СМЕН ===');
     const container = document.getElementById('shifts-list');
@@ -2682,7 +2725,10 @@ async function renderShiftsList() {
         })
     );
     
-    shiftsWithProducts.forEach(shift => {
+    // Сортируем смены
+    const sortedShifts = sortShifts(shiftsWithProducts);
+    
+    sortedShifts.forEach(shift => {
         console.log('🎯 Отображаем смену с продуктами:', shift);
         
         const shiftElement = document.createElement('div');
@@ -2883,8 +2929,8 @@ async function populateShiftForm(shift) {
     document.getElementById('shift-date').value = shift.shift_date;
     document.querySelector(`input[name="workday"][value="${shift.is_workday}"]`).checked = true;
     document.getElementById('shift-venue').value = shift.venue_id;
-    document.getElementById('shift-payout').value = shift.fixed_payout;
-    document.getElementById('shift-tips').value = shift.tips;
+    document.getElementById('shift-payout').value = shift.fixed_payout || '';
+    document.getElementById('shift-tips').value = shift.tips || '';
     
     toggleWorkFields();
     
@@ -2953,7 +2999,7 @@ function toggleWorkFields() {
         document.getElementById('shift-venue').value = '';
         // НЕ обнуляем shift-payout и shift-tips - они могут быть и в выходной день
         document.querySelectorAll('#product-fields input').forEach(input => {
-            input.value = 0;
+            input.value = '';
         });
         // Очищаем контейнер продуктов
         const container = document.getElementById('product-fields');
@@ -3041,12 +3087,12 @@ function updateProductFieldsWithData(shiftProductsData = []) {
         
         // Ищем количество для этого продукта в данных смены
         const shiftProduct = shiftProductsData.find(sp => sp.product_id === product.id);
-        const quantity = shiftProduct ? shiftProduct.quantity : 0;
+        const quantity = shiftProduct ? shiftProduct.quantity : '';
         
         console.log(`Продукт ${product.name}: сохраненное количество = ${quantity}`);
         
         // Рассчитываем сумму
-        const sum = quantity * product.price_per_unit;
+        const sum = (quantity || 0) * product.price_per_unit;
         
         fieldGroup.innerHTML = `
             <label>${product.name} (${formatCurrency(product.price_per_unit)}):</label>
@@ -3133,8 +3179,8 @@ function updateProductFields(clearValues = false) {
         const fieldGroup = document.createElement('div');
         fieldGroup.className = 'form-group';
         
-        // Восстанавливаем сохраненное значение или используем 0
-        const savedValue = existingValues[product.id] || '0';
+        // Восстанавливаем сохраненное значение или используем пустую строку
+        const savedValue = existingValues[product.id] || '';
         
         // Рассчитываем начальную сумму
         const initialQuantity = parseInt(savedValue) || 0;
@@ -3213,7 +3259,7 @@ function updateVenueSelects() {
     select.addEventListener('change', (e) => {
         const selectedOption = e.target.options[e.target.selectedIndex];
         if (selectedOption.dataset.payout) {
-            document.getElementById('shift-payout').value = selectedOption.dataset.payout;
+            document.getElementById('shift-payout').value = selectedOption.dataset.payout || '';
         }
         // Обновляем поля продуктов для выбранного заведения
         console.log('Изменение заведения - обновляем поля продуктов');
@@ -3245,8 +3291,8 @@ function calculateShiftTotals() {
     updateAllProductSums();
     
     if (!isWorkday) {
-        document.getElementById('shift-revenue').value = 0;
-        document.getElementById('shift-earnings').value = 0;
+        document.getElementById('shift-revenue').value = '';
+        document.getElementById('shift-earnings').value = '';
         return;
     }
     
@@ -3721,7 +3767,7 @@ function openVenueModal(venue = null) {
         title.textContent = 'Редактировать заведение';
         deleteBtn.classList.remove('hidden');
         document.getElementById('venue-name').value = venue.name || '';
-        document.getElementById('venue-payout').value = venue.default_fixed_payout || 0;
+        document.getElementById('venue-payout').value = venue.default_fixed_payout || '';
         
         // Загружаем позиции заведения
         loadVenueProducts(venue.id);
@@ -4015,10 +4061,10 @@ function openProductModal(product = null) {
     if (product) {
         title.textContent = 'Редактировать позицию';
         deleteBtn.classList.remove('hidden');
-        document.getElementById('product-name').value = product.name;
-        document.getElementById('product-price').value = product.price_per_unit;
-        document.getElementById('commission-type').value = product.commission_type;
-        document.getElementById('commission-value').value = product.commission_value;
+        document.getElementById('product-name').value = product.name || '';
+        document.getElementById('product-price').value = product.price_per_unit || '';
+        document.getElementById('commission-type').value = product.commission_type || 'fixed';
+        document.getElementById('commission-value').value = product.commission_value || '';
     } else {
         title.textContent = 'Добавить позицию';
         deleteBtn.classList.add('hidden');
