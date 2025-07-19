@@ -1,18 +1,6 @@
 {
   "version": 2,
   "name": "shift-log-app",
-  "builds": [
-    {
-      "src": "**/*",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -75,11 +63,6 @@
       ]
     }
   ],
-  "functions": {
-    "app/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
