@@ -1,9 +1,9 @@
-name: Deploy to Beget
+name: Deploy to Beget (rsync)
 
 on:
   push:
     branches:
-      - main  # ветка, при пуше в которую будет запускаться деплой
+      - main
 
 jobs:
   deploy:
@@ -18,9 +18,14 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Создание архива для деплоя
+    - name: Деплой через rsync
       run: |
-        tar -czf deploy.tar.gz \
+        # Создаем временную директорию с файлами для деплоя
+        mkdir -p deploy_temp
+        cp -r index.html app.js style.css manifest.json sw.js vercel.json package.json deploy_temp/
+        
+        # Деплоим через rsync
+        rsync -avz --delete \
           --exclude='.git' \
           --exclude='node_modules' \
           --exclude='.github' \
@@ -29,24 +34,13 @@ jobs:
           --exclude='*.md' \
           --exclude='*.txt' \
           --exclude='*.log' \
-          .
-
-    - name: Деплой на Beget
-      run: |
-        # Копируем архив на сервер
-        scp -o StrictHostKeyChecking=no deploy.tar.gz chuchuc3@chuchuc3.beget.tech:~/deploy.tar.gz
+          deploy_temp/ chuchuc3@chuchuc3.beget.tech:../shiftlog/public_html/
         
-        # Распаковываем и деплоим
-        ssh -o StrictHostKeyChecking=no chuchuc3@chuchuc3.beget.tech "
-          cd ../shiftlog/public_html &&
-          rm -rf * &&
-          tar -xzf ~/deploy.tar.gz &&
-          rm ~/deploy.tar.gz &&
-          echo 'Деплой завершен успешно!'
-        "
+        # Очищаем временную директорию
+        rm -rf deploy_temp
 
     - name: Проверка деплоя
       run: |
         echo "Проверяем доступность сайта..."
-        sleep 10
+        sleep 5
         curl -f https://chuchuc3.beget.tech || echo "Сайт еще не доступен" 
