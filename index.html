@@ -4,10 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.6.0&t=1730811456">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
-    <meta name="description" content="Учет рабочих смен и заработка">
+    <meta name="description" content="Журнал Рабочих Смен - персональное веб-приложение для учета рабочих смен и расчета заработка">
+    <meta name="keywords" content="учет смен, заработок, журнал работы, смены, зарплата">
+    <meta name="author" content="ShiftLog Team">
+    <meta name="application-name" content="Журнал Рабочих Смен">
+    <meta name="robots" content="index, follow">
+    <meta name="googlebot" content="index, follow">
+    
+    <!-- PWA Meta теги -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ShiftLog">
+    <meta name="msapplication-TileColor" content="#2563eb">
+    <meta name="msapplication-config" content="browserconfig.xml">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Apple Touch иконки -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-192.svg">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-192.svg">
+    <link rel="apple-touch-icon" sizes="120x120" href="icon-192.svg">
+    
+    <!-- Стандартные иконки -->
+    <link rel="icon" type="image/svg+xml" href="icon-192.svg">
+    <link rel="shortcut icon" href="favicon.ico">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Журнал Рабочих Смен">
+    <meta property="og:description" content="Персональное приложение для учета рабочих смен">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://shiftlog.netlify.app">
+    <meta property="og:image" content="https://shiftlog.netlify.app/icon-512.svg">
+    <link rel="canonical" href="https://shiftlog.netlify.app">
 </head>
 <body>
     <div id="app">
@@ -50,9 +81,20 @@
                 <button class="nav-btn active" data-screen="shifts">Журнал</button>
                 <button class="nav-btn" data-screen="reports">Итоги</button>
                 <button class="nav-btn" data-screen="settings">Настройки</button>
+                <!-- Кнопка установки PWA -->
+                <button class="nav-btn install-btn" id="install-btn" style="display: none;">
+                    <span class="install-icon">📱</span>
+                    <span class="install-text">Установить</span>
+                </button>
+                
+                <!-- Кнопка обновления PWA -->
+                <button class="nav-btn update-btn" id="update-btn" style="display: none;">
+                    <span class="update-icon">🔄</span>
+                    <span class="update-text">Обновить</span>
+                </button>
             </nav>
 
-            <!-- Экран журнала смен -->
+            <!-- Экран журнала -->
             <div id="shifts-screen" class="content-screen">
                 <div class="screen-header">
                     <h2>Журнал смен</h2>
@@ -63,14 +105,21 @@
                     </div>
                 </div>
                 
-                <div class="shifts-table">
-                    <div class="table-header">
-                        <div class="table-cell">Дата</div>
-                        <div class="table-cell">Заведение</div>
-                        <div class="table-cell">Выручка</div>
-                        <div class="table-cell">Заработок</div>
+                <div class="shifts-controls">
+                    <div class="sort-controls">
+                        <label for="sort-select">Сортировка:</label>
+                        <select id="sort-select">
+                            <option value="date-desc">По дате (новые сначала)</option>
+                            <option value="date-asc">По дате (старые сначала)</option>
+                            <option value="earnings-desc">По заработку (больше сначала)</option>
+                            <option value="earnings-asc">По заработку (меньше сначала)</option>
+                            <option value="venue">По заведению</option>
+                        </select>
                     </div>
-                    <div id="shifts-list" class="table-body">
+                </div>
+                
+                <div class="shifts-container">
+                    <div id="shifts-list" class="shifts-list">
                         <!-- Смены будут добавлены динамически -->
                     </div>
                 </div>
@@ -153,10 +202,10 @@
                         <button class="btn btn-secondary" id="add-venue-btn">Добавить заведение</button>
                     </div>
                     
-                    <div class="settings-section">
+                    <div class="settings-section" style="display: none;">
                         <h3>Позиции/Услуги</h3>
                         <div id="products-list" class="list-items">
-                            <!-- Список позиций -->
+                            <!-- Позиции теперь управляются через заведения -->
                         </div>
                         <button class="btn btn-secondary" id="add-product-btn">Добавить позицию</button>
                     </div>
@@ -174,11 +223,13 @@
                     </div>
                     
                     <div class="settings-section">
-                        <h3>🔧 Отладка</h3>
-                        <button class="btn btn-secondary" id="debug-user-btn">Проверить пользователя</button>
-                        <button class="btn btn-secondary" id="test-shift-products-btn" style="margin-left: 10px;">Тест продуктов смены</button>
-                        <button class="btn btn-secondary" id="analyze-shifts-btn" style="margin-left: 10px;">Анализ смен</button>
-                        <div id="debug-info" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-family: monospace; font-size: 12px; display: none;"></div>
+                        <h3>Устранение неполадок</h3>
+                        <div class="form-group">
+                            <button class="btn btn-warning" id="clear-cache-btn">Очистить кэш и перезагрузить</button>
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                Используйте, если приложение не загружается или работает некорректно
+                            </small>
+                        </div>
                     </div>
                     
                     <button class="btn btn-danger" id="logout-btn">Выход</button>
@@ -273,6 +324,17 @@
                     <input type="number" id="venue-payout" min="0" step="0.01">
                 </div>
                 
+                <!-- Секция управления позициями заведения -->
+                <div class="form-group">
+                    <label>Позиции заведения:</label>
+                    <div id="venue-products-list" class="venue-products-list">
+                        <p class="empty-message">Позиции будут добавлены после сохранения заведения</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="add-venue-product" style="margin-top: 10px;">
+                        + Добавить позицию
+                    </button>
+                </div>
+                
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="cancel-venue">Отмена</button>
                     <button type="submit" class="btn btn-primary">Сохранить</button>
@@ -336,8 +398,150 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <!-- Попытка загрузки Supabase из множественных CDN -->
+    <script>
+        console.log('🔄 Начинаю загрузку Supabase...');
+        
+        // Функция для загрузки скрипта с Promise
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.async = true;
+                script.src = url;
+                
+                script.onload = () => {
+                    console.log(`✅ Успешно загружен скрипт: ${url}`);
+                    resolve();
+                };
+                
+                script.onerror = () => {
+                    console.error(`❌ Ошибка загрузки скрипта: ${url}`);
+                    reject(new Error(`Failed to load ${url}`));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Попытка загрузки с множественных CDN
+        async function loadSupabase() {
+            const cdnUrls = [
+                'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+                'https://cdn.skypack.dev/@supabase/supabase-js@2',
+                'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+                'https://esm.sh/@supabase/supabase-js@2'
+            ];
+            
+            for (const url of cdnUrls) {
+                try {
+                    console.log(`🔄 Попытка загрузки с: ${url}`);
+                    await loadScript(url);
+                    
+                    // Проверяем что Supabase доступен
+                    if (window.supabase || window.SupabaseJS) {
+                        if (window.SupabaseJS && !window.supabase) {
+                            window.supabase = window.SupabaseJS;
+                        }
+                        console.log('✅ Supabase успешно загружен и доступен');
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ CDN ${url} недоступен, пробуем следующий...`);
+                    continue;
+                }
+            }
+            
+            console.error('❌ Все CDN недоступны');
+            return false;
+        }
+        
+        // Запускаем загрузку
+        loadSupabase().then(success => {
+            if (!success) {
+                console.error('❌ Критическая ошибка: Supabase не загружен');
+                
+                // Показываем сообщение пользователю
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.innerHTML = `
+                            <div style="text-align: center; padding: 40px;">
+                                <h2>⚠️ Проблема с подключением</h2>
+                                <p>Не удается загрузить необходимые компоненты.</p>
+                                <p>Проверьте подключение к интернету и попробуйте:</p>
+                                <button onclick="location.reload()" style="margin: 10px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    Обновить страницу
+                                </button>
+                                <button onclick="clearCacheAndReload()" style="margin: 10px; padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    Очистить кэш и обновить
+                                </button>
+                            </div>
+                        `;
+                    }
+                }, 1000);
+            }
+        });
+        
+        // Функция для очистки кэша
+        function clearCacheAndReload() {
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                }).then(() => {
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(registrations => {
+                            registrations.forEach(registration => {
+                                registration.unregister();
+                            });
+                        }).then(() => {
+                            window.location.reload(true);
+                        });
+                    } else {
+                        window.location.reload(true);
+                    }
+                });
+            } else {
+                window.location.reload(true);
+            }
+        }
+    </script>
+    <!-- Принудительный механизм скрытия загрузки -->
+    <script>
+        console.log('🚨 ЗАПУСК ПРИНУДИТЕЛЬНОГО ТАЙМЕРА СКРЫТИЯ ЗАГРУЗКИ');
+        
+        // Принудительно скрываем загрузку через 10 секунд
+        setTimeout(function() {
+            console.log('🚨 ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЗАГРУЗКИ (HTML таймер)');
+            const loadingScreen = document.getElementById('loading-screen');
+            const authScreen = document.getElementById('auth-screen');
+            const mainApp = document.getElementById('main-app');
+            
+            if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+                console.log('🔧 Принудительно скрываем загрузку из HTML');
+                loadingScreen.classList.add('hidden');
+                
+                // Показываем экран авторизации по умолчанию
+                if (authScreen) authScreen.classList.remove('hidden');
+                if (mainApp) mainApp.classList.add('hidden');
+                
+                console.log('✅ Принудительное скрытие из HTML выполнено');
+            }
+        }, 10000);
+        
+        // Дополнительный механизм для быстрого доступа
+        window.emergencyHideLoading = function() {
+            console.log('🆘 ЭКСТРЕННОЕ СКРЫТИЕ ЗАГРУЗКИ');
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+        };
+    </script>
+    
+    <script src="supabase-fallback.js?v=2.6.0&t=1730811456"></script>
+    <script src="main.js?v=3.5.0&t=1730814500"></script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>
