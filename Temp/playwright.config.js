@@ -23,7 +23,7 @@ module.exports = defineConfig({
   /* Общие настройки для всех тестов */
   use: {
     /* URL приложения */
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3003',
     
     /* Собирать скриншоты при неудаче */
     screenshot: 'only-on-failure',
@@ -96,7 +96,7 @@ module.exports = defineConfig({
   /* Запуск локального сервера перед тестами */
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3003',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

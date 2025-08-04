@@ -1,0 +1,155 @@
+# Промпты для создания обложки проекта "Журнал Рабочих Смен"
+
+## Русский промпт
+
+Создай профессиональную обложку для краудфандингового проекта со следующими параметрами:
+
+**Технические требования:**
+- Размер: 600×360 пикселей (соотношение 15:9)
+- Формат: JPEG или PNG
+- Стиль: Современный, минималистичный дизайн
+
+**Содержание:**
+- Название проекта: "Журнал Рабочих Смен"
+- Подзаголовок: "Умное приложение для учета заработка"
+- Основной элемент: Стилизованный интерфейс мобильного приложения с графиками и диаграммами
+- Цветовая схема: Синий (#2563eb) и белый как основные цвета, акценты в зеленом (#10b981) для успеха
+- Дополнительные элементы: Иконки денег, графиков, мобильного телефона
+- Фон: Градиент от светло-синего к белому
+
+**Стиль и настроение:**
+- Профессиональный и современный вид
+- Технологичность и инновационность
+- Доверие и надежность
+- Читаемость текста на любом фоне
+
+**Композиция:**
+- Название проекта крупным шрифтом в верхней части
+- Подзаголовок меньшим шрифтом под названием
+- Мокап мобильного приложения в центре
+- Иконки и графические элементы по краям
+- Минималистичный дизайн без лишних деталей
+
+---
+
+## English prompt
+
+Create a professional cover image for a crowdfunding project with the following specifications:
+
+**Technical requirements:**
+- Size: 600×360 pixels (15:9 aspect ratio)
+- Format: JPEG or PNG
+- Style: Modern, minimalist design
+
+**Content:**
+- Project title: "Журнал Рабочих Смен" (Shift Log)
+- Subtitle: "Умное приложение для учета заработка" (Smart app for earnings tracking)
+- Main element: Stylized mobile app interface with charts and graphs
+- Color scheme: Blue (#2563eb) and white as primary colors, green (#10b981) accents for success
+- Additional elements: Money icons, charts, mobile phone icons
+- Background: Gradient from light blue to white
+
+**Style and mood:**
+- Professional and modern appearance
+- Technological and innovative feel
+- Trust and reliability
+- Text readability on any background
+
+**Composition:**
+- Project title in large font at the top
+- Subtitle in smaller font below the title
+- Mobile app mockup in the center
+- Icons and graphic elements around the edges
+- Minimalist design without unnecessary details
+
+**Visual elements to include:**
+- Modern smartphone mockup
+- Charts and graphs showing earnings
+- Currency symbols (₽, $, €)
+- Calendar or schedule icons
+- Professional gradient background
+- Clean typography with good contrast
+
+**Target audience appeal:**
+- Service industry workers (waiters, bartenders, hairdressers)
+- Modern, tech-savvy professionals
+- People looking for financial tracking tools
+- Mobile app users
+
+---
+
+## Альтернативный вариант (более детальный)
+
+### Русский промпт (детальный)
+
+Создай обложку для краудфандингового проекта "Журнал Рабочих Смен" со следующими характеристиками:
+
+**Основная концепция:**
+Мобильное приложение для учета заработка работников сферы обслуживания
+
+**Визуальные элементы:**
+1. **Центральный элемент:** Стилизованный смартфон с интерфейсом приложения
+2. **Интерфейс приложения показывает:**
+   - Календарь с отметками рабочих дней
+   - График заработка по дням
+   - Счетчик выручки и чаевых
+   - Иконки заведений (ресторан, парикмахерская, бар)
+3. **Фон:** Градиент от #2563eb (синий) к #ffffff (белый)
+4. **Акценты:** Зеленые элементы (#10b981) для показа успеха и роста
+
+**Типографика:**
+- Заголовок: "Журнал Рабочих Смен" - крупный, жирный шрифт
+- Подзаголовок: "Умное приложение для учета заработка" - средний размер
+- Цвет текста: Белый или темно-синий для контраста
+
+**Дополнительные детали:**
+- Иконки: Деньги, графики, часы, календарь
+- Эффекты: Легкие тени и блики для объема
+- Стиль: Плоский дизайн (flat design) с минимальными тенями
+
+**Настроение:**
+- Профессиональное и современное
+- Вызывающее доверие
+- Технологичное и инновационное
+- Ориентированное на мобильных пользователей
+
+---
+
+### English prompt (detailed)
+
+Create a cover image for the crowdfunding project "Журнал Рабочих Смен" (Shift Log) with the following characteristics:
+
+**Main concept:**
+Mobile application for tracking earnings of service industry workers
+
+**Visual elements:**
+1. **Central element:** Stylized smartphone with app interface
+2. **App interface shows:**
+   - Calendar with marked work days
+   - Earnings chart by days
+   - Revenue and tips counter
+   - Venue icons (restaurant, salon, bar)
+3. **Background:** Gradient from #2563eb (blue) to #ffffff (white)
+4. **Accents:** Green elements (#10b981) to show success and growth
+
+**Typography:**
+- Title: "Журнал Рабочих Смен" - large, bold font
+- Subtitle: "Умное приложение для учета заработка" - medium size
+- Text color: White or dark blue for contrast
+
+**Additional details:**
+- Icons: Money, charts, clock, calendar
+- Effects: Light shadows and highlights for volume
+- Style: Flat design with minimal shadows
+
+**Mood:**
+- Professional and modern
+- Trustworthy
+- Technological and innovative
+- Mobile user-oriented
+
+**Target visual appeal:**
+- Service industry professionals
+- Modern, tech-savvy workers
+- People seeking financial tracking tools
+- Mobile app enthusiasts 

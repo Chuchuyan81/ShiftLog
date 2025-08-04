@@ -25,7 +25,7 @@ const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
 1. В Supabase перейдите: **Authentication → Settings**
 2. Найдите **Site URL**
 3. Добавьте URL вашего приложения:
-   - Для локального тестирования: `http://localhost:3000`
+   - Для локального тестирования: `http://localhost:3003`
    - Для Netlify: `https://your-app-name.netlify.app`
 4. Нажмите **Save**
 
@@ -33,7 +33,7 @@ const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
 В том же разделе **Authentication → Settings**:
 1. Найдите **Redirect URLs**
 2. Добавьте:
-   - `http://localhost:3000/**` (для локального тестирования)
+   - `http://localhost:3003/**` (для локального тестирования)
    - `https://your-app-name.netlify.app/**` (для Netlify)
 
 ### Причина 3: База данных не создана
@@ -120,7 +120,7 @@ supabase.auth.getSession().then(result => {
 
 3. **Проверьте CORS:**
    - Убедитесь, что ваш домен добавлен в Site URL
-   - Попробуйте с `localhost:3000`
+   - Попробуйте с `localhost:3003`
 
 ## 📞 Получить помощь
 

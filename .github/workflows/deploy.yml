@@ -1,0 +1,23 @@
+name: Deploy to Beget
+
+on:
+  push:
+    branches:
+      - main  # ветка, при пуше в которую будет запускаться деплой
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Проверка кода
+      uses: actions/checkout@v3
+
+    - name: Настройка SSH
+      uses: webfactory/ssh-agent@v0.8.1
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Деплой на Beget
+      run: |
+        ssh -o StrictHostKeyChecking=no chuchuc3@chuchuc3.beget.tech "cd ../shiftlog/public_html && git pull origin main" 
