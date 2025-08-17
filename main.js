@@ -3460,7 +3460,13 @@ async function handleShiftSubmit(e) {
     let earnings = shiftData.fixed_payout + shiftData.tips;
     const shiftProducts = [];
     
-    if (shiftData.is_workday && shiftData.venue_id) {
+    if (shiftData.is_workday) {
+        // Для рабочего дня проверяем, что выбрано заведение
+        if (!shiftData.venue_id) {
+            showMessage('Ошибка', 'Для рабочего дня необходимо выбрать заведение');
+            return;
+        }
+        
         // Работаем только с продуктами выбранного заведения
         const venueProducts = products.filter(product => product.venue_id === shiftData.venue_id);
         console.log('Продукты для обработки:', venueProducts);
@@ -3522,7 +3528,7 @@ async function handleShiftSubmit(e) {
             }
         });
     } else {
-        console.log('Не рабочий день или не выбрано заведение. is_workday:', shiftData.is_workday, 'venue_id:', shiftData.venue_id);
+        console.log('Выходной день. is_workday:', shiftData.is_workday, 'venue_id:', shiftData.venue_id);
     }
     
     shiftData.revenue_generated = revenue;
