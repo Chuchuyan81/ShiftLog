@@ -2671,8 +2671,8 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id)?.name || '';
-                const venueB = venues.find(v => v.id === b.venue_id)?.name || '';
+                const venueA = venues.find(v => v.id === a.venue_id)?.name || (a.is_workday ? 'Не указано' : 'Выходной');
+                const venueB = venues.find(v => v.id === b.venue_id)?.name || (b.is_workday ? 'Не указано' : 'Выходной');
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2740,7 +2740,7 @@ async function renderShiftsList() {
         
         // Получаем название заведения из массива venues
         const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue?.name || 'Не указано';
+        const venueName = venue?.name || (shift.is_workday ? 'Не указано' : 'Выходной');
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -4388,7 +4388,8 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        csv += `${shift.shift_date},${shift.venues?.name || ''},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
+        const venueName = shift.venues?.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
