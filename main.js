@@ -2988,15 +2988,20 @@ function resetShiftForm() {
 function toggleWorkFields() {
     const isWorkday = document.querySelector('input[name="workday"]:checked').value === 'true';
     const workFields = document.getElementById('work-fields');
+    const venueSelect = document.getElementById('shift-venue');
     
     if (isWorkday) {
         workFields.style.display = 'block';
+        // Делаем поле заведения обязательным для рабочего дня
+        venueSelect.setAttribute('required', 'required');
         // Обновляем поля продуктов при переключении на рабочий день
         updateProductFields();
     } else {
         workFields.style.display = 'none';
+        // Убираем обязательность поля заведения для выходного дня
+        venueSelect.removeAttribute('required');
         // Обнуляем только поля, связанные с работой (заведение и продукты)
-        document.getElementById('shift-venue').value = '';
+        venueSelect.value = '';
         // НЕ обнуляем shift-payout и shift-tips - они могут быть и в выходной день
         document.querySelectorAll('#product-fields input').forEach(input => {
             input.value = '';
