@@ -6,11 +6,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 var supabase = window.supabase || null;
 
 // Состояние приложения
-let currentUser = null;
-let currentMonth = new Date();
-let reportsMonth = new Date(); // Отдельный месяц для отчетов
-let isInitializing = false;
-let isInitialized = false;
+var currentUser = null;
+var currentMonth = new Date();
+var reportsMonth = new Date(); // Отдельный месяц для отчетов
+var isInitializing = false;
+var isInitialized = false;
 
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 console.log('🆘 Создаем экстренные функции диагностики...');
@@ -686,14 +686,14 @@ setTimeout(() => {
 
 // Состояние приложения
 // (Перенесено в начало файла)
-let venues = [];
-let products = [];
-let shifts = [];
-let reportsShifts = []; // Отдельный массив для отчетов
-let currency = '₽';
-let editingShift = null;
-let editingVenue = null;
-let editingProduct = null;
+var venues = [];
+var products = [];
+var shifts = [];
+var reportsShifts = []; // Отдельный массив для отчетов
+var currency = '₽';
+var editingShift = null;
+var editingVenue = null;
+var editingProduct = null;
 
 // Переменные для управления сессией
 let sessionCheckInterval = null;

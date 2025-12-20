@@ -1,5 +1,5 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.3.2';
+const CACHE_NAME = 'shift-log-v1.3.3';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -14,27 +14,21 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.3.2');
+    console.log('SW: Устанавливаю Service Worker v1.3.3');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
                 console.log('SW: Кэширую файлы');
                 return cache.addAll(urlsToCache);
             })
-            .catch(function(error) {
-                console.error('SW: Ошибка при кэшировании:', error);
-                // Не прерываем установку из-за ошибок кэширования
-                return Promise.resolve();
-            })
     );
-    
-    // НЕ активируем принудительно - дожидаемся закрытия старых страниц
-    // self.skipWaiting();
+    // Активируем принудительно, чтобы сразу применить изменения
+    self.skipWaiting();
 });
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.3.2');
+    console.log('SW: Активирую Service Worker v1.3.3');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
@@ -45,11 +39,10 @@ self.addEventListener('activate', function(event) {
                     }
                 })
             );
+        }).then(function() {
+            // Сразу берем под контроль все страницы
+            return self.clients.claim();
         })
-        // НЕ берем под контроль существующие страницы сразу
-        // .then(function() {
-        //     return self.clients.claim();
-        // })
     );
 });
 
@@ -150,4 +143,4 @@ self.addEventListener('unhandledrejection', function(event) {
     console.error('SW: Необработанное отклонение промиса:', event.reason);
 });
 
-console.log('SW: Service Worker v1.3.0 загружен'); 
+console.log('SW: Service Worker v1.3.3 загружен'); 
