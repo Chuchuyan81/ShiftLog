@@ -12,9 +12,11 @@ var reportsMonth = new Date(); // Отдельный месяц для отче�
 var isInitializing = false;
 var isInitialized = false;
 
-// ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
-console.log('🆘 Создаем экстренные функции диагностики...');
+// ЭКСТРЕННЫЙ ЛОГ - ПЕРВАЯ СТРОКА
+console.log('🆘 [CRITICAL] main.js начал выполнение!');
+console.log('🆘 [CRITICAL] window.supabase при старте:', !!window.supabase);
 
+// ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 window.emergencyDiagnose = function() {
     console.log('=== ЭКСТРЕННАЯ ДИАГНОСТИКА ===');
     console.log('timestamp:', new Date().toISOString());
@@ -598,6 +600,19 @@ window.addEventListener('supabase-loaded', () => {
         });
     }
 });
+
+// Проверка: если библиотека УЖЕ загружена к этому моменту (событие пропущено)
+if (window.supabase || window.SupabaseJS) {
+    console.log('🔔 Библиотека Supabase уже обнаружена при запуске main.js');
+    if (!supabase) {
+        initSupabaseClient().then(client => {
+            if (client && !isInitialized && !isInitializing) {
+                console.log('🚀 Автоматический старт инициализации (библиотека была готова)');
+                initializeApp();
+            }
+        });
+    }
+}
 
 console.log('Клиент Supabase создан:', {
     supabaseExists: !!supabase,

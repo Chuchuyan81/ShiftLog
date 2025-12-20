@@ -1,5 +1,5 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.4.0';
+const CACHE_NAME = 'shift-log-v1.4.2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.4.0');
+    console.log('SW: Устанавливаю Service Worker v1.4.2');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -28,7 +28,7 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.4.0');
+    console.log('SW: Активирую Service Worker v1.4.2');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
@@ -162,4 +162,4 @@ self.addEventListener('unhandledrejection', function(event) {
     console.error('SW: Необработанное отклонение промиса:', event.reason);
 });
 
-console.log('SW: Service Worker v1.4.0 загружен'); 
+console.log('SW: Service Worker v1.4.2 загружен'); 
