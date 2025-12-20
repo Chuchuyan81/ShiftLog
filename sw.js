@@ -55,6 +55,7 @@ self.addEventListener('fetch', function(event) {
         url.includes('cdn.jsdelivr.net') || 
         url.includes('unpkg.com') ||
         url.includes('cdnjs.cloudflare.com') ||
+        url.includes('main.js?v=') || // ПРОПУСКАЕМ ВЕРСИОНИРОВАННЫЙ MAIN.JS
         !url.startsWith(self.location.origin)) {
         
         console.log('SW: Пропускаю внешний ресурс:', url);
