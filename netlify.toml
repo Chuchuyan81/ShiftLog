@@ -24,6 +24,14 @@
   [headers.values]
     Content-Type = "application/manifest+json"
 
+# Настройка для Service Worker
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Service-Worker-Allowed = "/"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Content-Type = "application/javascript"
+
 # Настройка кэширования для статических ресурсов
 [[headers]]
   for = "*.css"
@@ -46,6 +54,12 @@
   to = "https://shiftlog.netlify.app/:splat"
   status = 301
   force = true
+
+# Service Worker перенаправление
+[[redirects]]
+  from = "/sw.js"
+  to = "/sw.js"
+  status = 200
 
 # SPA перенаправления для всех маршрутов
 [[redirects]]

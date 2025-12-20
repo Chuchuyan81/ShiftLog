@@ -1,5 +1,5 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.3.3';
+const CACHE_NAME = 'shift-log-v1.4.0';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.3.3');
+    console.log('SW: Устанавливаю Service Worker v1.4.0');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -28,7 +28,7 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.3.3');
+    console.log('SW: Активирую Service Worker v1.4.0');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
@@ -73,14 +73,33 @@ self.addEventListener('fetch', function(event) {
             .then(function(response) {
                 // Если есть кэшированная версия, возвращаем её
                 if (response) {
+                    // Проверка на корректность ответа из кэша
+                    if (!(response instanceof Response)) {
+                        console.error('SW: Некорректный объект ответа в кэше');
+                        return fetch(event.request);
+                    }
                     console.log('SW: Возвращаю из кэша:', event.request.url);
                     return response;
                 }
                 
                 // Иначе загружаем из сети
                 return fetch(event.request).then(function(response) {
-                    // Проверяем корректность ответа
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                    // Проверка на корректность сетевого ответа
+                    if (!response || !(response instanceof Response)) {
+                        throw new Error('SW: Некорректный ответ от сети');
+                    }
+
+                    // Обработка специфических статусов 204 (No Content) и 304 (Not Modified)
+                    if (response.status === 204 || response.status === 304) {
+                        return new Response(undefined, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers: response.headers
+                        });
+                    }
+
+                    // Проверяем корректность ответа для кэширования
+                    if (response.status !== 200 || response.type !== 'basic') {
                         return response;
                     }
                     
@@ -143,4 +162,4 @@ self.addEventListener('unhandledrejection', function(event) {
     console.error('SW: Необработанное отклонение промиса:', event.reason);
 });
 
-console.log('SW: Service Worker v1.3.3 загружен'); 
+console.log('SW: Service Worker v1.4.0 загружен'); 
