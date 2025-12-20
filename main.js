@@ -527,19 +527,24 @@ setTimeout(() => {
 }, 15000);
 
 // Создаем клиент Supabase с улучшенной инициализацией
-let supabase = null;
+// Используем var вместо let, чтобы избежать ошибки "Identifier 'supabase' has already been declared"
+// если библиотека Supabase также объявляет глобальную переменную.
+var supabase = null;
 
 // Функция для создания клиента Supabase с повторными попытками
 async function initSupabaseClient() {
-    const maxRetries = 3;
-    const retryDelay = 1000; // 1 секунда
+    const maxRetries = 10; // Увеличиваем количество попыток
+    const retryDelay = 500; // Уменьшаем задержку
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             console.log(`🔄 Попытка ${attempt}/${maxRetries} создания клиента Supabase...`);
             
-            if (window.supabase) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            // Библиотека может быть доступна как window.supabase или window.SupabaseJS
+            const lib = window.supabase || window.SupabaseJS;
+            
+            if (lib && typeof lib.createClient === 'function') {
+                supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
                     auth: {
                         autoRefreshToken: true,
                         persistSession: true,
@@ -553,11 +558,6 @@ async function initSupabaseClient() {
                         headers: {
                             'X-Client-Info': 'shiftlog-app'
                         }
-                    },
-                    realtime: {
-                        params: {
-                            eventsPerSecond: 10
-                        }
                     }
                 });
                 
@@ -565,7 +565,7 @@ async function initSupabaseClient() {
                 return supabase;
             }
             
-            console.log(`⚠️ window.supabase недоступен, попытка ${attempt}/${maxRetries}`);
+            console.log(`⚠️ Библиотека Supabase еще не загружена, попытка ${attempt}/${maxRetries}`);
             
             if (attempt < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -573,42 +573,18 @@ async function initSupabaseClient() {
             
         } catch (error) {
             console.error(`❌ Ошибка создания клиента Supabase на попытке ${attempt}:`, error);
-            
             if (attempt < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
             }
         }
     }
     
-    // Если не удалось создать клиент, показываем ошибку
     console.error('❌ Не удалось создать клиент Supabase после всех попыток');
     return null;
 }
 
-// Инициализируем клиент при загрузке
-if (window.supabase) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true,
-            flowType: 'pkce',
-            refreshThreshold: 5400,
-            storage: window.localStorage,
-            storageKey: 'sb-auth-token'
-        },
-        global: {
-            headers: {
-                'X-Client-Info': 'shiftlog-app'
-            }
-        },
-        realtime: {
-            params: {
-                eventsPerSecond: 10
-            }
-        }
-    });
-}
+// Удаляем немедленную инициализацию здесь, так как она будет вызвана в initializeApp()
+// или через события загрузки.
 
 console.log('Клиент Supabase создан:', {
     supabaseExists: !!supabase,
@@ -620,6 +596,10 @@ console.log('🚀 Начало загрузки скрипта main.js (НОВА
 // ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ ПОСЛЕ ЗАГРУЗКИ
 setTimeout(async () => {
     console.log('🔐 ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ...');
+    if (!supabase) {
+        console.log('⚠️ Клиент Supabase еще не готов для проверки авторизации');
+        return;
+    }
     try {
         const { data: session, error } = await supabase.auth.getSession();
         console.log('🔍 Результат проверки сессии:', { session: !!session?.session, error });
@@ -647,11 +627,19 @@ setTimeout(async () => {
     // Если пользователь не определен, но может быть активная сессия
     if (!currentUser && !isInitializing) {
         console.log('⚠️ Пользователь не определен. Пробуем восстановить...');
+        if (!supabase) {
+            console.log('⚠️ Клиент Supabase не готов для восстановления сессии');
+            return;
+        }
         try {
             const { data: session } = await supabase.auth.getSession();
             if (session?.session?.user) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
-                await window.restoreAuth();
+                if (typeof window.restoreAuth === 'function') {
+                    await window.restoreAuth();
+                } else {
+                    await initializeApp();
+                }
             } else {
                 console.log('❌ Сессия не найдена. Показываем авторизацию.');
                 hideLoading();

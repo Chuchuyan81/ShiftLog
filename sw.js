@@ -1,20 +1,20 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.3.0';
+const CACHE_NAME = 'shift-log-v1.3.1';
 const urlsToCache = [
     '/',
     '/index.html',
     '/style.css',
     '/main.js',
+    '/supabase-fallback.js',
     '/manifest.json',
     '/icon-192.svg',
     '/icon-512.svg',
     '/favicon.ico'
-    // CDN библиотеки не кэшируем принудительно
 ];
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.3.0');
+    console.log('SW: Устанавливаю Service Worker v1.3.1');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -34,7 +34,7 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.3.0');
+    console.log('SW: Активирую Service Worker v1.3.1');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
