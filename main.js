@@ -2,6 +2,16 @@
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
 
+// Глобальный клиент Supabase
+var supabase = window.supabase || null;
+
+// Состояние приложения
+let currentUser = null;
+let currentMonth = new Date();
+let reportsMonth = new Date(); // Отдельный месяц для отчетов
+let isInitializing = false;
+let isInitialized = false;
+
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 console.log('🆘 Создаем экстренные функции диагностики...');
 
@@ -526,21 +536,15 @@ setTimeout(() => {
     }
 }, 15000);
 
-// Создаем клиент Supabase с улучшенной инициализацией
-// Используем var вместо let, чтобы избежать ошибки "Identifier 'supabase' has already been declared"
-// если библиотека Supabase также объявляет глобальную переменную.
-var supabase = null;
-
 // Функция для создания клиента Supabase с повторными попытками
 async function initSupabaseClient() {
-    const maxRetries = 10; // Увеличиваем количество попыток
-    const retryDelay = 500; // Уменьшаем задержку
+    const maxRetries = 15; // Еще больше попыток
+    const retryDelay = 500; 
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             console.log(`🔄 Попытка ${attempt}/${maxRetries} создания клиента Supabase...`);
             
-            // Библиотека может быть доступна как window.supabase или window.SupabaseJS
             const lib = window.supabase || window.SupabaseJS;
             
             if (lib && typeof lib.createClient === 'function') {
@@ -583,8 +587,17 @@ async function initSupabaseClient() {
     return null;
 }
 
-// Удаляем немедленную инициализацию здесь, так как она будет вызвана в initializeApp()
-// или через события загрузки.
+// Слушаем событие от fallback-скрипта для мгновенной инициализации
+window.addEventListener('supabase-loaded', () => {
+    console.log('🔔 Получено событие supabase-loaded, инициализируем клиент...');
+    if (!supabase) {
+        initSupabaseClient().then(client => {
+            if (client && !isInitialized && !isInitializing) {
+                initializeApp();
+            }
+        });
+    }
+});
 
 console.log('Клиент Supabase создан:', {
     supabaseExists: !!supabase,
@@ -672,10 +685,7 @@ setTimeout(() => {
 }, 8000);
 
 // Состояние приложения
-let currentUser = null;
-let currentMonth = new Date();
-let reportsMonth = new Date(); // Отдельный месяц для отчетов
-console.log('🗓️ Инициализация currentMonth:', currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }));
+// (Перенесено в начало файла)
 let venues = [];
 let products = [];
 let shifts = [];
@@ -684,10 +694,6 @@ let currency = '₽';
 let editingShift = null;
 let editingVenue = null;
 let editingProduct = null;
-
-// Флаг для предотвращения дублирования инициализации
-let isInitializing = false;
-let isInitialized = false;
 
 // Переменные для управления сессией
 let sessionCheckInterval = null;
