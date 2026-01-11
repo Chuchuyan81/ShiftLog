@@ -1,3 +1,4 @@
+console.log('🆘 [CRITICAL] main.js: САМАЯ ПЕРВАЯ СТРОКА ФАЙЛА');
 // Конфигурация Supabase - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
@@ -12,8 +13,8 @@ var reportsMonth = new Date(); // Отдельный месяц для отче�
 var isInitializing = false;
 var isInitialized = false;
 
-// ЭКСТРЕННЫЙ ЛОГ - ПЕРВАЯ СТРОКА
-console.log('🆘 [CRITICAL] main.js начал выполнение!');
+// ЭКСТРЕННЫЙ ЛОГ
+console.log('🆘 [CRITICAL] main.js: Инициализация переменных завершена');
 console.log('🆘 [CRITICAL] window.supabase при старте:', !!window.supabase);
 
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
