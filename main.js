@@ -1723,8 +1723,8 @@ async function handleAuth(e) {
                 
                 // Пробуем войти автоматически
                 try {
-                    const loginResult = await supabase.auth.signInWithPassword({ email, password });
-                    if (loginResult.data.user) {
+                    const loginResult = await supabase.auth.signInWithPassword({ email: email, password: password });
+                    if (loginResult.data && loginResult.data.user) {
                         console.log('✅ Автоматический вход выполнен успешно');
                         currentUser = loginResult.data.user;
                         startSessionCheck();
@@ -1746,14 +1746,15 @@ async function handleAuth(e) {
             }
             
             // Обработка других ошибок регистрации
-            if (result.error.status === 422 && result.error.message.includes('User already registered')) {
+            if (result.error.status === 422 && result.error.message.indexOf('User already registered') !== -1) {
                 console.log('⚠️ Пользователь уже зарегистрирован');
                 showMessage('Внимание', 'Пользователь с таким email уже зарегистрирован. Переключаемся на форму входа.');
                 
                 // Автоматически переключаем на форму входа
-                document.querySelectorAll('.tab-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
+                var tabBtns = document.querySelectorAll('.tab-btn');
+                for (var i = 0; i < tabBtns.length; i++) {
+                    tabBtns[i].classList.remove('active');
+                }
                 document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
                 document.getElementById('login-form').style.display = 'block';
                 document.getElementById('register-form').style.display = 'none';
@@ -1764,16 +1765,17 @@ async function handleAuth(e) {
             throw result.error;
         }
         
-        if (!isLogin && result.data.user) {
+        if (!isLogin && result.data && result.data.user) {
             // Проверяем, нужно ли подтверждение email
             if (!result.data.user.email_confirmed_at) {
                 console.log('📧 Email не подтвержден, но пользователь создан');
                 showMessage('Успех', 'Регистрация выполнена! Вы можете сразу войти в систему.');
                 
                 // Автоматически переключаем на форму входа
-                document.querySelectorAll('.tab-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
+                var tabBtns2 = document.querySelectorAll('.tab-btn');
+                for (var j = 0; j < tabBtns2.length; j++) {
+                    tabBtns2[j].classList.remove('active');
+                }
                 document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
                 document.getElementById('login-form').style.display = 'block';
                 document.getElementById('register-form').style.display = 'none';
@@ -1786,33 +1788,38 @@ async function handleAuth(e) {
             }
         }
         
-        currentUser = result.data.user;
-        console.log('✅ Пользователь успешно авторизован:', currentUser.id);
-        
-        // Запускаем проверку сессии
-        startSessionCheck();
-        
-        // Добавляем защитный таймаут для загрузки данных после входа
-        console.log('🔄 Начинаем загрузку данных пользователя...');
-        const authLoadTimeout = setTimeout(() => {
-            console.warn('⚠️ [WATCHDOG] Загрузка данных после входа затянулась (>10с)');
-            hideLoading();
-            showMainApp();
-        }, 10000);
-        
-        try {
-            await loadUserData();
-            console.log('✅ Данные пользователя загружены');
-            clearTimeout(authLoadTimeout);
+        if (result.data && result.data.user) {
+            currentUser = result.data.user;
+            console.log('✅ Пользователь успешно авторизован:', currentUser.id);
             
-            // Скрываем загрузку и переходим в приложение
-            hideLoading();
-            showMainApp();
-        } catch (loadError) {
-            console.error('❌ Ошибка при загрузке данных после входа:', loadError);
-            clearTimeout(authLoadTimeout);
-            hideLoading();
-            showMainApp();
+            // Запускаем проверку сессии
+            startSessionCheck();
+            
+            // Добавляем защитный таймаут для загрузки данных после входа
+            console.log('🔄 Начинаем загрузку данных пользователя...');
+            var authLoadTimeout = setTimeout(function() {
+                console.warn('⚠️ [WATCHDOG] Загрузка данных после входа затянулась (>10с)');
+                hideLoading();
+                showMainApp();
+            }, 10000);
+            
+            try {
+                await loadUserData();
+                console.log('✅ Данные пользователя загружены');
+                clearTimeout(authLoadTimeout);
+                
+                // Скрываем загрузку и переходим в приложение
+                hideLoading();
+                showMainApp();
+            } catch (loadError) {
+                console.error('❌ Ошибка при загрузке данных после входа:', loadError);
+                clearTimeout(authLoadTimeout);
+                hideLoading();
+                showMainApp();
+            }
+        } else {
+            console.error('❌ Ошибка: результат входа не содержит данных пользователя');
+            showMessage('Ошибка', 'Не удалось получить данные пользователя после входа.');
         }
         
     } catch (error) {
@@ -4492,7 +4499,14 @@ async function getCurrentUser() {
                 setTimeout(() => reject(new Error(`Таймаут получения пользователя (${timeout}ms)`)), timeout)
             );
             
-            const { data: { user }, error } = await Promise.race([getUserPromise, timeoutPromise]);
+        const authResult = await Promise.race([getUserPromise, timeoutPromise]);
+        const user = (authResult.data && authResult.data.user) ? authResult.data.user : null;
+        const error = authResult.error;
+        
+        console.log('📝 Результат getUser:', { hasUser: !!user, hasError: !!error });
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:getCurrentUser',message:'getUser result',data:{hasUser:!!user,hasError:!!error,error:error?error.message:null},timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
+        // #endregion
             
             const elapsed = Date.now() - startTime;
             console.log(`📋 Запрос пользователя занял ${elapsed}ms`);
@@ -4618,15 +4632,23 @@ function setupAuthStateListener() {
     console.log('🔧 Настраиваем auth state listener');
     
     supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session.user.id);
-        console.log('🔍 onAuthStateChange флаги:', { isInitialized, isInitializing });
+        const userId = (session && session.user) ? session.user.id : 'none';
+        console.log('Auth state changed:', event, userId);
+        console.log('🔍 onAuthStateChange флаги:', { isInitialized: isInitialized, isInitializing: isInitializing });
         
         // Если приложение еще не инициализировано, пропускаем SIGNED_IN
         // чтобы не дублировать инициализацию
         if (event === 'SIGNED_IN') {
             console.log('🔍 Обрабатываем SIGNED_IN событие');
-            console.log('👤 Пользователь из события:', session.user.id);
-            console.log('👤 Текущий пользователь:', currentUser.id);
+            if (!session || !session.user) {
+                console.warn('⚠️ SIGNED_IN без сессии или пользователя');
+                return;
+            }
+            const sessionUserId = session.user.id;
+            const currentUserId = currentUser ? currentUser.id : 'none';
+            
+            console.log('👤 Пользователь из события:', sessionUserId);
+            console.log('👤 Текущий пользователь:', currentUserId);
             if (!isInitialized) {
                 console.log('⚠️ Приложение еще не инициализировано, пропускаем SIGNED_IN');
                 return;
@@ -4634,13 +4656,13 @@ function setupAuthStateListener() {
             
             // Только если пользователь действительно сменился
             console.log('🔍 Проверяем смену пользователя:', {
-                currentUserId: currentUser.id,
-                sessionUserId: session.user.id,
-                isEqual: currentUser.id === session.user.id
+                currentUserId: currentUserId,
+                sessionUserId: sessionUserId,
+                isEqual: currentUserId === sessionUserId
             });
             
-            if (currentUser.id !== session.user.id) {
-                console.log('🎯 Новый пользователь вошел в систему:', session.user.id);
+            if (currentUserId !== sessionUserId) {
+                console.log('🎯 Новый пользователь вошел в систему:', sessionUserId);
                 
                 // ПРИНУДИТЕЛЬНО скрываем загрузку НЕМЕДЛЕННО при входе
                 console.log('🚨 ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЗАГРУЗКИ ПРИ ВХОДЕ ПОЛЬЗОВАТЕЛЯ');
