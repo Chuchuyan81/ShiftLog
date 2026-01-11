@@ -1,5 +1,5 @@
-// Service Worker для PWA функциональности (v1.6.3)
-const CACHE_NAME = 'shift-log-v1.6.3';
+// Service Worker для PWA функциональности (v1.6.4)
+const CACHE_NAME = 'shift-log-v1.6.4';
 const urlsToCache = [
     './',
     './index.html',
@@ -18,7 +18,8 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
-                return Promise.allSettled(
+                // Заменяем Promise.allSettled на Promise.all для совместимости
+                return Promise.all(
                     urlsToCache.map(function(url) {
                         return cache.add(url).catch(function(err) {
                             console.error('SW: Cache add failed for ' + url, err);

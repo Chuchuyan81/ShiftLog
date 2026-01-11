@@ -94,13 +94,19 @@
             if (loader && !loader.classList.contains('hidden')) {
                 console.warn('⏰ Watchdog fired: Loader stuck for 12s');
                 loader.classList.add('hidden');
-                document.getElementById('auth-screen')?.classList.remove('hidden');
+                const authScreen = document.getElementById('auth-screen');
+                if (authScreen) authScreen.classList.remove('hidden');
             }
         }, 12000);
 
         // Проверка поддержки ES2020
         try {
-            eval('window?.foo');
+            eval('window["foo"]'); // Убираем ?. из eval, чтобы сам eval не упал на старых браузерах до теста
+            console.log('✅ Basic JS support: OK');
+            
+            // Тест на ?.
+            var testObj = {a:1};
+            eval('testObj?.a');
             console.log('✅ ES2020 support: OK');
         } catch (e) {
             console.error('❌ ES2020 NOT SUPPORTED! (Optional chaining fail)');
@@ -504,8 +510,8 @@
     </div>
 
     <!-- Механизмы загрузки и управления -->
-    <script src="supabase-fallback.js?v=1.6.2"></script>
-    <script src="main.js?t=202601111845"></script>
+    <script src="supabase-fallback.js?v=1.6.3"></script>
+    <script src="main.js?v=4.0.6"></script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>

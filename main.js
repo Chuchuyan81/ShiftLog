@@ -24,9 +24,9 @@ window.emergencyDiagnose = function() {
     console.log('timestamp:', new Date().toISOString());
     console.log('window.supabase:', !!window.supabase);
     console.log('DOM readyState:', document.readyState);
-    console.log('Загрузка экран hidden:', document.getElementById('loading-screen')?.classList.contains('hidden'));
-    console.log('Главное приложение hidden:', document.getElementById('main-app')?.classList.contains('hidden'));
-    console.log('Экран авторизации hidden:', document.getElementById('auth-screen')?.classList.contains('hidden'));
+    console.log('Загрузка экран hidden:', document.getElementById('loading-screen').classList.contains('hidden'));
+    console.log('Главное приложение hidden:', document.getElementById('main-app').classList.contains('hidden'));
+    console.log('Экран авторизации hidden:', document.getElementById('auth-screen').classList.contains('hidden'));
     console.log('Глобальные переменные определены:', {
         currentUser: typeof window.currentUser !== 'undefined',
         isInitializing: typeof window.isInitializing !== 'undefined',
@@ -64,9 +64,9 @@ window.checkAppState = function() {
     console.log('isInitializing определен:', typeof window.isInitializing !== 'undefined');
     console.log('isInitialized определен:', typeof window.isInitialized !== 'undefined');
     try {
-        console.log('Loading screen hidden:', document.getElementById('loading-screen')?.classList.contains('hidden'));
-        console.log('Main app hidden:', document.getElementById('main-app')?.classList.contains('hidden'));
-        console.log('Auth screen hidden:', document.getElementById('auth-screen')?.classList.contains('hidden'));
+        console.log('Loading screen hidden:', document.getElementById('loading-screen').classList.contains('hidden'));
+        console.log('Main app hidden:', document.getElementById('main-app').classList.contains('hidden'));
+        console.log('Auth screen hidden:', document.getElementById('auth-screen').classList.contains('hidden'));
     } catch (e) {
         console.log('DOM элементы недоступны:', e.message);
     }
@@ -528,12 +528,12 @@ setTimeout(() => {
         // Если есть авторизованный пользователь - показываем приложение
         if (window.currentUser) {
             console.log('👤 Есть пользователь - показываем приложение');
-            authScreen?.classList.add('hidden');
-            mainApp?.classList.remove('hidden');
+            authScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
         } else {
             console.log('👤 Нет пользователя - показываем авторизацию');
-            authScreen?.classList.remove('hidden');
-            mainApp?.classList.add('hidden');
+            authScreen.classList.remove('hidden');
+            mainApp.classList.add('hidden');
         }
         
         console.log('✅ Принудительное скрытие загрузки выполнено');
@@ -635,9 +635,9 @@ setTimeout(async () => {
     }
     try {
         const { data: session, error } = await supabase.auth.getSession();
-        console.log('🔍 Результат проверки сессии:', { session: !!session?.session, error });
+        console.log('🔍 Результат проверки сессии:', { session: !!session.session, error });
         
-        if (session?.session && !currentUser) {
+        if (session.session && !currentUser) {
             console.log('🔄 Найдена активная сессия, но currentUser = null. Восстанавливаем...');
             currentUser = session.session.user;
             
@@ -666,7 +666,7 @@ setTimeout(async () => {
         }
         try {
             const { data: session } = await supabase.auth.getSession();
-            if (session?.session?.user) {
+            if (session.session.user) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
                 if (typeof window.restoreAuth === 'function') {
                     await window.restoreAuth();
@@ -695,11 +695,11 @@ setTimeout(() => {
         loadingScreen.classList.add('hidden');
         
         if (window.currentUser) {
-            document.getElementById('main-app')?.classList.remove('hidden');
-            document.getElementById('auth-screen')?.classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('auth-screen').classList.add('hidden');
         } else {
-            document.getElementById('auth-screen')?.classList.remove('hidden');
-            document.getElementById('main-app')?.classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
         }
     }
 }, 8000);
@@ -1082,8 +1082,9 @@ async function initializeApp() {
         const sessionResult = await supabase.auth.getSession();
         console.log('📝 Сырой результат getSession:', sessionResult);
         
-        const { data: { session } } = sessionResult;
-        console.log('📝 Обработанная сессия:', { session: !!session, userId: session?.user?.id });
+        const { data } = sessionResult;
+        const session = data ? data.session : null;
+        console.log('📝 Обработанная сессия:', { session: !!session, userId: (session && session.user ? session.user.id : 'none') });
         
         if (session) {
             console.log('🔍 Шаг 5: Пользователь авторизован, настраиваем...');
@@ -1213,7 +1214,8 @@ function stopSessionCheck() {
 async function checkSessionExpiration() {
     try {
         // Проверяем наличие активной сессии
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResult = await supabase.auth.getSession();
+        const session = sessionResult.data ? sessionResult.data.session : null;
         
         if (!session) {
             // Если нет сессии, но пользователь был авторизован - значит сессия истекла
@@ -1375,10 +1377,10 @@ function showMainApp() {
     hideLoading();
     
     console.log('🎯 Скрываем экран авторизации...');
-    document.getElementById('auth-screen')?.classList.add('hidden');
+    document.getElementById('auth-screen').classList.add('hidden');
     
     console.log('🎯 Показываем главное приложение...');
-    document.getElementById('main-app')?.classList.remove('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
     
     console.log('🎯 Обновляем отображение месяца...');
     updateMonthDisplay();
@@ -1594,7 +1596,7 @@ function setupSettingsListeners() {
         });
         
         // Тестируем поиск по селекторам
-        const testProductId = allInputs[0]?.getAttribute('data-product-id');
+        const testProductId = allInputs[0].getAttribute('data-product-id');
         if (testProductId) {
             const byGlobalSelector = document.querySelector(`[data-product-id="${testProductId}"]`);
             const shiftModal = document.getElementById('shift-modal');
@@ -1979,7 +1981,7 @@ function loadCachedData() {
 async function loadVenuesOptimized() {
     console.log('🏢 Оптимизированная загрузка заведений с retry');
     
-    if (!currentUser?.id) {
+    if (!currentUser.id) {
         console.error('❌ Нет авторизованного пользователя');
         return;
     }
@@ -2056,7 +2058,7 @@ async function loadProductsAndShiftsInBackground() {
 }
 
 async function loadProductsOptimized() {
-    if (!currentUser?.id) return;
+    if (!currentUser.id) return;
     
     const maxRetries = 2;
     const baseTimeout = 6000;
@@ -2111,7 +2113,7 @@ async function loadProductsOptimized() {
 }
 
 async function loadShiftsOptimized() {
-    if (!currentUser?.id) {
+    if (!currentUser.id) {
         console.log('⚠️ Нет авторизованного пользователя для загрузки смен');
         return;
     }
@@ -2257,9 +2259,9 @@ async function loadVenues() {
     
     // Диагностика Supabase соединения
     console.log('🔍 Диагностика Supabase:');
-    console.log('📡 Supabase URL:', supabase?.supabaseUrl || 'не определен');
-    console.log('🔑 Supabase Key:', supabase?.supabaseKey ? 'установлен' : 'не установлен');
-    console.log('⚡ Supabase auth:', supabase?.auth ? 'доступен' : 'недоступен');
+    console.log('📡 Supabase URL:', supabase.supabaseUrl || 'не определен');
+    console.log('🔑 Supabase Key:', supabase.supabaseKey ? 'установлен' : 'не установлен');
+    console.log('⚡ Supabase auth:', supabase.auth ? 'доступен' : 'недоступен');
     
     // Проверка интернет соединения
     console.log('🌐 Проверяем интернет соединение...');
@@ -2433,7 +2435,7 @@ async function loadProducts() {
             }
         }
         
-        console.log('📋 Финальный результат products:', { count: allProducts?.length, error: lastError });
+        console.log('📋 Финальный результат products:', { count: allProducts.length, error: lastError });
         
         if (lastError) {
             console.error('❌ Все попытки загрузки products неудачны:', lastError);
@@ -2496,7 +2498,7 @@ async function loadShifts() {
     const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
     
-    console.log('👤 Загрузка смен для пользователя:', currentUser?.id);
+    console.log('👤 Загрузка смен для пользователя:', currentUser.id);
     console.log('📅 Период:', startOfMonth.toISOString().split('T')[0], 'до', endOfMonth.toISOString().split('T')[0]);
     
     try {
@@ -2552,7 +2554,7 @@ async function loadShifts() {
             }
         }
         
-        console.log('📋 Финальный результат shifts:', { count: basicShifts?.length, error: lastError });
+        console.log('📋 Финальный результат shifts:', { count: basicShifts.length, error: lastError });
         
         if (lastError) {
             console.error('❌ Все попытки загрузки shifts неудачны:', lastError);
@@ -2719,8 +2721,8 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id)?.name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id)?.name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
+                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2810,7 +2812,7 @@ async function renderShiftsList() {
         
         // Получаем название заведения из массива venues
         const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue?.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2820,8 +2822,8 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products?.name || 
-                                  products.find(p => p.id === sp.product_id)?.name || 
+                const productName = sp.venue_products.name || 
+                                  products.find(p => p.id === sp.product_id).name || 
                                   'Неизвестная позиция';
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
@@ -3020,7 +3022,7 @@ async function populateShiftForm(shift) {
                 data: shiftProducts,
                 error: error,
                 shiftId: shift.id,
-                count: shiftProducts?.length || 0
+                count: shiftProducts.length || 0
             });
             
             if (error) {
@@ -3135,7 +3137,7 @@ function updateProductFieldsWithData(shiftProductsData = []) {
     container.innerHTML = '';
     
     // Получаем выбранное заведение
-    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    const selectedVenueId = document.getElementById('shift-venue').value;
     
     if (!selectedVenueId) {
         container.innerHTML = '<div class="form-group"><label>Сначала выберите заведение для отображения позиций</label></div>';
@@ -3229,7 +3231,7 @@ function updateProductFields(clearValues = false) {
     container.innerHTML = '';
     
     // Получаем выбранное заведение
-    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    const selectedVenueId = document.getElementById('shift-venue').value;
     
     if (!selectedVenueId) {
         container.innerHTML = '<div class="form-group"><label>Сначала выберите заведение для отображения позиций</label></div>';
@@ -3358,7 +3360,7 @@ function updateVenueSelects() {
 }
 
 function calculateShiftTotals() {
-    const isWorkday = document.querySelector('input[name="workday"]:checked')?.value === 'true';
+    const isWorkday = document.querySelector('input[name="workday"]:checked').value === 'true';
     
     console.log('Расчет итогов смены. Рабочий день:', isWorkday);
     
@@ -3375,7 +3377,7 @@ function calculateShiftTotals() {
     let earnings = 0;
     
     // Расчет по продуктам выбранного заведения
-    const selectedVenueId = document.getElementById('shift-venue')?.value;
+    const selectedVenueId = document.getElementById('shift-venue').value;
     console.log('Выбранное заведение:', selectedVenueId);
     
     if (selectedVenueId) {
@@ -3576,9 +3578,9 @@ async function handleShiftSubmit(e) {
             
             console.log(`Поиск input для продукта ${product.name} (id: ${product.id}):`);
             console.log('Найденный input:', input);
-            console.log('Значение input:', input?.value);
+            console.log('Значение input:', input.value);
             
-            const quantity = parseInt(input?.value) || 0;
+            const quantity = parseInt(input.value) || 0;
             console.log(`Количество для ${product.name}: ${quantity}`);
             
             if (quantity > 0) {
@@ -3825,9 +3827,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue?.id,
-        venueName: venue?.name,
-        isValidId: venue?.id && venue.id !== 'undefined'
+        venueId: venue.id,
+        venueName: venue.name,
+        isValidId: venue.id && venue.id !== 'undefined'
     });
     
     editingVenue = venue;
@@ -3997,13 +3999,13 @@ async function handleVenueSubmit(e) {
     }
     
     // Получаем значения из формы с проверкой
-    const venueName = venueNameElement.value?.trim();
+    const venueName = venueNameElement.value.trim();
     const venuePayout = parseFloat(venuePayoutElement.value) || 0;
     
     console.log('Значения из формы:', {
         venueName: venueName,
         venueNameType: typeof venueName,
-        venueNameLength: venueName?.length,
+        venueNameLength: venueName.length,
         venuePayout: venuePayout,
         venuePayoutType: typeof venuePayout
     });
@@ -4220,7 +4222,7 @@ async function handleProductSubmit(e) {
     }
     
     // Получаем значения из формы с проверкой
-    const productName = productNameElement.value?.trim();
+    const productName = productNameElement.value.trim();
     const productPrice = parseFloat(productPriceElement.value) || 0;
     const commissionType = commissionTypeElement.value;
     const commissionValue = parseFloat(commissionValueElement.value) || 0;
@@ -4396,7 +4398,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products?.name || 'Неизвестно';
+                    const productName = sp.venue_products.name || 'Неизвестно';
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4458,7 +4460,7 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues?.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
@@ -4616,15 +4618,15 @@ function setupAuthStateListener() {
     console.log('🔧 Настраиваем auth state listener');
     
     supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('Auth state changed:', event, session.user.id);
         console.log('🔍 onAuthStateChange флаги:', { isInitialized, isInitializing });
         
         // Если приложение еще не инициализировано, пропускаем SIGNED_IN
         // чтобы не дублировать инициализацию
         if (event === 'SIGNED_IN') {
             console.log('🔍 Обрабатываем SIGNED_IN событие');
-            console.log('👤 Пользователь из события:', session?.user?.id);
-            console.log('👤 Текущий пользователь:', currentUser?.id);
+            console.log('👤 Пользователь из события:', session.user.id);
+            console.log('👤 Текущий пользователь:', currentUser.id);
             if (!isInitialized) {
                 console.log('⚠️ Приложение еще не инициализировано, пропускаем SIGNED_IN');
                 return;
@@ -4632,12 +4634,12 @@ function setupAuthStateListener() {
             
             // Только если пользователь действительно сменился
             console.log('🔍 Проверяем смену пользователя:', {
-                currentUserId: currentUser?.id,
-                sessionUserId: session?.user?.id,
-                isEqual: currentUser?.id === session?.user?.id
+                currentUserId: currentUser.id,
+                sessionUserId: session.user.id,
+                isEqual: currentUser.id === session.user.id
             });
             
-            if (currentUser?.id !== session?.user?.id) {
+            if (currentUser.id !== session.user.id) {
                 console.log('🎯 Новый пользователь вошел в систему:', session.user.id);
                 
                 // ПРИНУДИТЕЛЬНО скрываем загрузку НЕМЕДЛЕННО при входе
@@ -4747,9 +4749,9 @@ window.checkAppState = function() {
     console.log('Текущий месяц:', currentMonth);
     console.log('Supabase клиент:', !!supabase);
     console.log('Флаги инициализации:', { isInitializing, isInitialized });
-    console.log('Экран загрузки скрыт:', document.getElementById('loading-screen')?.classList.contains('hidden'));
-    console.log('Главное приложение показано:', !document.getElementById('main-app')?.classList.contains('hidden'));
-    console.log('Экран авторизации показан:', !document.getElementById('auth-screen')?.classList.contains('hidden'));
+    console.log('Экран загрузки скрыт:', document.getElementById('loading-screen').classList.contains('hidden'));
+    console.log('Главное приложение показано:', !document.getElementById('main-app').classList.contains('hidden'));
+    console.log('Экран авторизации показан:', !document.getElementById('auth-screen').classList.contains('hidden'));
 };
 
 window.forceInitialize = function() {
@@ -4774,10 +4776,10 @@ window.diagnoseShifts = async function() {
     console.log('2️⃣ DOM элементы:');
     const container = document.getElementById('shifts-list');
     console.log('  - shifts-list найден:', !!container);
-    console.log('  - shifts-list HTML длина:', container?.innerHTML?.length || 0);
-    console.log('  - shifts-list дочерние элементы:', container?.children?.length || 0);
+    console.log('  - shifts-list HTML длина:', container.innerHTML.length || 0);
+    console.log('  - shifts-list дочерние элементы:', container.children.length || 0);
     
-    if (currentUser?.id) {
+    if (currentUser.id) {
         console.log('3️⃣ Прямой запрос к базе данных:');
         try {
             const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -4793,7 +4795,7 @@ window.diagnoseShifts = async function() {
                 
             console.log('  - Прямой запрос результат:', directShifts);
             console.log('  - Прямой запрос ошибка:', error);
-            console.log('  - Количество смен в БД:', directShifts?.length || 0);
+            console.log('  - Количество смен в БД:', directShifts.length || 0);
             
             // Проверяем заведения тоже
             const { data: directVenues, error: venuesError } = await supabase
@@ -4854,12 +4856,12 @@ window.restoreAuth = async function() {
         const { data: session, error } = await supabase.auth.getSession();
         
         console.log('📋 Результат getSession:', { 
-            session: !!session?.session, 
-            user: !!session?.session?.user,
+            session: !!session.session, 
+            user: !!session.session.user,
             error: error 
         });
         
-        if (session?.session?.user) {
+        if (session.session.user) {
             console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
             currentUser = session.session.user;
             
@@ -4900,7 +4902,7 @@ window.restoreAuth = async function() {
 async function refreshUserData() {
     console.log('🔄 Принудительное обновление данных пользователя...');
     
-    if (!currentUser?.id) {
+    if (!currentUser.id) {
         console.log('⚠️ Нет авторизованного пользователя для обновления данных');
         return;
     }
