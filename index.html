@@ -399,16 +399,6 @@
     </div>
 
     <!-- Механизмы загрузки и управления -->
-    <script>
-        // Принудительный сброс при каждом входе для борьбы с кэшем
-        (function() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    for(let reg of regs) reg.unregister();
-                });
-            }
-        })();
-    </script>
     <script src="supabase-fallback.js"></script>
     <script src="main.js?t=20260111"></script>
     

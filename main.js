@@ -1,11 +1,8 @@
-console.error('🆘 [CRITICAL] main.js: ФАЙЛ ЗАГРУЖЕН И ВЫПОЛНЯЕТСЯ!');
-alert('Приложение загружено!');
-// Конфигурация Supabase - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
-const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co'; // https://your-project-id.supabase.co
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY'; // ваш anon ключ из Settings > API
+// Глобальный клиент Supabase (инстанс)
+var supabase = null; 
 
-// Глобальный клиент Supabase
-var supabase = window.supabase || null;
+const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY';
 
 // Состояние приложения
 var currentUser = null;
@@ -15,8 +12,7 @@ var isInitializing = false;
 var isInitialized = false;
 
 // ЭКСТРЕННЫЙ ЛОГ
-console.log('🆘 [CRITICAL] main.js: Инициализация переменных завершена');
-console.log('🆘 [CRITICAL] window.supabase при старте:', !!window.supabase);
+console.log('🆘 [CRITICAL] main.js: Переменные инициализированы');
 
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 window.emergencyDiagnose = function() {
@@ -1041,17 +1037,14 @@ async function initializeApp() {
     
     // Проверяем наличие Supabase клиента
     console.log('🔍 Шаг 1: Проверяем Supabase клиент...');
-    if (!supabase) {
-        console.log('⚠️ Supabase клиент недоступен, пытаемся инициализировать...');
-        
-        // Пытаемся создать клиент повторно
+    if (!supabase || typeof supabase.auth === 'undefined') {
+        console.log('⚠️ Клиент Supabase не инициализирован или поврежден, исправляем...');
         supabase = await initSupabaseClient();
         
         if (!supabase) {
-            console.error('❌ Не удалось создать клиент Supabase');
+            console.error('❌ Критическая ошибка: Не удалось создать клиент Supabase');
             hideLoading();
-            showMessage('Ошибка', 'Не удалось подключиться к базе данных. Проверьте интернет-соединение.');
-            showAuthScreen();
+            showMessage('Ошибка', 'Не удалось подключиться к системе. Попробуйте обновить страницу.');
             isInitializing = false;
             return;
         }
