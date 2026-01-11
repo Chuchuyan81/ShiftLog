@@ -928,8 +928,8 @@ if (!document.getElementById('shift-cards-styles')) {
     document.head.appendChild(style);
 }
 
-// Инициализация приложения v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ
-console.log('🚀 Начало загрузки скрипта app.js v2.2.0 - ИСПРАВЛЕНИЕ БЕСКОНЕЧНОЙ ЗАГРУЗКИ');
+// Инициализация приложения
+console.log('🚀 Начало загрузки скрипта main.js');
 console.log('🕐 Timestamp загрузки:', new Date().toISOString());
 console.log('🌐 Среда выполнения:', {
     host: window.location.host,
