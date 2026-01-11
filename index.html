@@ -46,7 +46,38 @@
         <div id="loading-screen" class="loading-screen">
             <div class="spinner"></div>
             <p>Загрузка...</p>
+            <div id="emergency-reset-container" style="display: none; margin-top: 20px; text-align: center;">
+                <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Загрузка затянулась?</p>
+                <button onclick="forceClearAndReload()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">
+                    Очистить кэш и перезагрузить
+                </button>
+            </div>
         </div>
+
+        <script>
+            // Таймер для показа кнопки экстренного сброса
+            setTimeout(function() {
+                const container = document.getElementById('emergency-reset-container');
+                if (container) container.style.display = 'block';
+            }, 7000);
+
+            // Функция полной очистки для мобильных устройств
+            function forceClearAndReload() {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        regs.forEach(reg => reg.unregister());
+                    });
+                }
+                if ('caches' in window) {
+                    caches.keys().then(keys => {
+                        keys.forEach(key => caches.delete(key));
+                    });
+                }
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload(true);
+            }
+        </script>
 
         <!-- Экран аутентификации -->
         <div id="auth-screen" class="screen hidden">
@@ -399,8 +430,8 @@
     </div>
 
     <!-- Механизмы загрузки и управления -->
-    <script src="supabase-fallback.js"></script>
-    <script src="main.js"></script>
+    <script src="supabase-fallback.js?v=1.6.1"></script>
+    <script src="main.js?v=4.0.4"></script>
     
     <script>
         // Резервное скрытие загрузки, если основной скрипт не запустился
