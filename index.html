@@ -3,23 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <script>
-        // ЭКСТРЕННЫЙ СБРОС КЭША И SERVICE WORKER
+        // ЭКСТРЕННЫЙ СБРОС КЭША И SERVICE WORKER (УЛУЧШЕННЫЙ)
         (function() {
-            const currentVersion = 'v1.5.1';
+            const currentVersion = 'v1.5.2';
             if (localStorage.getItem('app_version') !== currentVersion) {
-                console.log('🚨 Обнаружено обновление или зависание. Сброс кэша...');
+                console.log('🚨 ОБНАРУЖЕНО ОБНОВЛЕНИЕ. ПОЛНАЯ ОЧИСТКА...');
+                
+                // Очистка Service Workers
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(regs => {
-                        for (let reg of regs) reg.unregister();
+                        regs.forEach(reg => reg.unregister());
                     });
                 }
+                
+                // Очистка всех кэшей
                 if ('caches' in window) {
                     caches.keys().then(names => {
-                        for (let name of names) caches.delete(name);
+                        names.forEach(name => caches.delete(name));
                     });
                 }
+                
+                // Очистка хранилищ
+                localStorage.clear();
+                sessionStorage.clear();
                 localStorage.setItem('app_version', currentVersion);
-                setTimeout(() => { window.location.reload(true); }, 500);
+                
+                console.log('🚨 ОЧИСТКА ЗАВЕРШЕНА. ПЕРЕЗАГРУЗКА...');
+                setTimeout(() => { window.location.reload(true); }, 1000);
             }
         })();
     </script>
