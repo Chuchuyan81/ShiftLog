@@ -1360,14 +1360,25 @@ function showAuthScreen() {
 
 function showMainApp() {
     console.log('🎯 showMainApp вызвана');
+    
+    // Скрываем экран загрузки в первую очередь
+    hideLoading();
+    
     console.log('🎯 Скрываем экран авторизации...');
-    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('auth-screen')?.classList.add('hidden');
+    
     console.log('🎯 Показываем главное приложение...');
-    document.getElementById('main-app').classList.remove('hidden');
+    document.getElementById('main-app')?.classList.remove('hidden');
+    
     console.log('🎯 Обновляем отображение месяца...');
     updateMonthDisplay();
+    
     console.log('🎯 Выполняем PWA шорткаты...');
     executePWAShortcuts();
+    
+    // Загружаем смены
+    loadShifts();
+    
     console.log('✅ showMainApp завершена');
 }
 
@@ -1764,13 +1775,33 @@ async function handleAuth(e) {
         }
         
         currentUser = result.data.user;
-        console.log('Пользователь после входа:', currentUser.id);
+        console.log('✅ Пользователь успешно авторизован:', currentUser.id);
         
         // Запускаем проверку сессии
         startSessionCheck();
         
-        await loadUserData();
-        showMainApp();
+        // Добавляем защитный таймаут для загрузки данных после входа
+        console.log('🔄 Начинаем загрузку данных пользователя...');
+        const authLoadTimeout = setTimeout(() => {
+            console.warn('⚠️ [WATCHDOG] Загрузка данных после входа затянулась (>10с)');
+            hideLoading();
+            showMainApp();
+        }, 10000);
+        
+        try {
+            await loadUserData();
+            console.log('✅ Данные пользователя загружены');
+            clearTimeout(authLoadTimeout);
+            
+            // Скрываем загрузку и переходим в приложение
+            hideLoading();
+            showMainApp();
+        } catch (loadError) {
+            console.error('❌ Ошибка при загрузке данных после входа:', loadError);
+            clearTimeout(authLoadTimeout);
+            hideLoading();
+            showMainApp();
+        }
         
     } catch (error) {
         showMessage('Ошибка', error.message);
@@ -2721,13 +2752,35 @@ async function renderShiftsList() {
         return;
     }
     
-    // Загружаем продукты для всех смен параллельно
-    const shiftsWithProducts = await Promise.all(
-        shifts.map(async (shift) => {
-            const shiftProducts = await loadShiftProducts(shift.id);
-            return { ...shift, products: shiftProducts };
-        })
-    );
+    // ОПТИМИЗАЦИЯ: Загружаем все продукты для всех смен одним запросом вместо N запросов
+    console.log(`📦 Загружаем позиции для ${shifts.length} смен...`);
+    let allShiftProducts = [];
+    try {
+        const shiftIds = shifts.map(s => s.id);
+        const { data, error } = await supabase
+            .from('shift_products')
+            .select('*, venue_products(name)')
+            .in('shift_id', shiftIds);
+            
+        if (error) throw error;
+        allShiftProducts = data || [];
+        console.log(`✅ Загружено всего позиций: ${allShiftProducts.length}`);
+    } catch (err) {
+        console.error('❌ Ошибка при массовой загрузке позиций:', err);
+    }
+    
+    // Группируем продукты по ID смены
+    const productsByShift = allShiftProducts.reduce((acc, sp) => {
+        if (!acc[sp.shift_id]) acc[sp.shift_id] = [];
+        acc[sp.shift_id].push(sp);
+        return acc;
+    }, {});
+
+    // Привязываем продукты к сменам
+    const shiftsWithProducts = shifts.map(shift => ({
+        ...shift,
+        products: productsByShift[shift.id] || []
+    }));
     
     // Сортируем смены
     const sortedShifts = sortShifts(shiftsWithProducts);
