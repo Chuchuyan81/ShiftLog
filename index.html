@@ -2,37 +2,6 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <script>
-        // ЭКСТРЕННЫЙ СБРОС КЭША И SERVICE WORKER (УЛУЧШЕННЫЙ)
-        (function() {
-            const currentVersion = 'v1.5.2';
-            if (localStorage.getItem('app_version') !== currentVersion) {
-                console.log('🚨 ОБНАРУЖЕНО ОБНОВЛЕНИЕ. ПОЛНАЯ ОЧИСТКА...');
-                
-                // Очистка Service Workers
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(regs => {
-                        regs.forEach(reg => reg.unregister());
-                    });
-                }
-                
-                // Очистка всех кэшей
-                if ('caches' in window) {
-                    caches.keys().then(names => {
-                        names.forEach(name => caches.delete(name));
-                    });
-                }
-                
-                // Очистка хранилищ
-                localStorage.clear();
-                sessionStorage.clear();
-                localStorage.setItem('app_version', currentVersion);
-                
-                console.log('🚨 ОЧИСТКА ЗАВЕРШЕНА. ПЕРЕЗАГРУЗКА...');
-                setTimeout(() => { window.location.reload(true); }, 1000);
-            }
-        })();
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
     <link rel="stylesheet" href="style.css?v=2.6.2">
@@ -429,20 +398,30 @@
         </div>
     </div>
 
-    <!-- Резервные механизмы загрузки и управления -->
-    <script src="supabase-fallback.js?v=1.5.1"></script>
-    <script src="main.js?v=4.0.1" onerror="console.error('❌ HTML: Ошибка загрузки main.js!')" onload="console.log('✅ HTML: main.js загружен успешно')"></script>
+    <!-- Механизмы загрузки и управления -->
+    <script>
+        // Принудительный сброс при каждом входе для борьбы с кэшем
+        (function() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    for(let reg of regs) reg.unregister();
+                });
+            }
+        })();
+    </script>
+    <script src="supabase-fallback.js"></script>
+    <script src="main.js?t=20260111"></script>
     
     <script>
-        // Резервное скрытие загрузки, если main.js не справился
+        // Резервное скрытие загрузки, если основной скрипт не запустился
         setTimeout(function() {
             const loader = document.getElementById('loading-screen');
             if (loader && !loader.classList.contains('hidden')) {
-                console.warn('⚠️ Резервный таймер: скрываю загрузку принудительно');
+                console.warn('⚠️ Резервный таймер: скрываю загрузку');
                 loader.classList.add('hidden');
                 document.getElementById('auth-screen')?.classList.remove('hidden');
             }
-        }, 8000);
+        }, 5000);
     </script>
     
     <!-- Регистрация Service Worker для PWA -->
