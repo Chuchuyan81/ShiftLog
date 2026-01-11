@@ -1,15 +1,15 @@
 // Service Worker для PWA функциональности
 const CACHE_NAME = 'shift-log-v1.4.2';
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/main.js',
-    '/supabase-fallback.js',
-    '/manifest.json',
-    '/icon-192.svg',
-    '/icon-512.svg',
-    '/favicon.ico'
+    './',
+    './index.html',
+    './style.css',
+    './main.js',
+    './supabase-fallback.js',
+    './manifest.json',
+    './icon-192.svg',
+    './icon-512.svg',
+    './favicon.ico'
 ];
 
 // Установка Service Worker
@@ -18,8 +18,17 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
-                console.log('SW: Кэширую файлы');
-                return cache.addAll(urlsToCache);
+                console.log('SW: Кэширую файлы по одному...');
+                // Кэшируем файлы по одному, чтобы ошибка одного не блокировала остальные
+                return Promise.allSettled(
+                    urlsToCache.map(url => {
+                        return cache.add(url).then(() => {
+                            console.log(`SW: Закешировано: ${url}`);
+                        }).catch(err => {
+                            console.warn(`SW: Не удалось закешировать ${url}:`, err);
+                        });
+                    })
+                );
             })
     );
     // Активируем принудительно, чтобы сразу применить изменения
