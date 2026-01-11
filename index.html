@@ -46,11 +46,77 @@
     <link rel="canonical" href="https://shiftlog.netlify.app">
 </head>
 <body>
+    <script>
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:body-top',message:'Body scripts started',timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
+        // #endregion
+
+        // Глобальный перехват ошибок
+        window.onerror = function(msg, url, line, col, error) {
+            const debugDiv = document.getElementById('mobile-debug-console');
+            if (debugDiv) {
+                const div = document.createElement('div');
+                div.style.color = '#ff5555';
+                div.textContent = '[' + new Date().toLocaleTimeString() + '] ❌ CRITICAL: ' + msg + (line ? ' at line ' + line : '');
+                debugDiv.appendChild(div);
+            }
+            return false;
+        };
+
+        // Перехват консоли для отладки на мобильных (сделаем сразу)
+        (function() {
+            window.logToScreen = function(msg, type) {
+                const consoleDiv = document.getElementById('mobile-debug-console');
+                if (!consoleDiv) {
+                    // Если див еще не создан, подождем немного
+                    setTimeout(function() { window.logToScreen(msg, type); }, 100);
+                    return;
+                }
+                const entry = document.createElement('div');
+                entry.style.color = type === 'error' ? '#ff5555' : (type === 'warn' ? '#ffff55' : '#00ff00');
+                entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+                consoleDiv.appendChild(entry);
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            };
+            
+            const oldLog = console.log;
+            const oldError = console.error;
+            const oldWarn = console.warn;
+            
+            console.log = function() { window.logToScreen(Array.from(arguments).join(' '), 'log'); oldLog.apply(console, arguments); };
+            console.error = function() { window.logToScreen(Array.from(arguments).join(' '), 'error'); oldError.apply(console, arguments); };
+            console.warn = function() { window.logToScreen(Array.from(arguments).join(' '), 'warn'); oldWarn.apply(console, arguments); };
+        })();
+
+        // Резервный таймер (Watchdog) - МАКСИМАЛЬНО РАНО
+        window._watchdogTimer = setTimeout(function() {
+            const loader = document.getElementById('loading-screen');
+            if (loader && !loader.classList.contains('hidden')) {
+                console.warn('⏰ Watchdog fired: Loader stuck for 12s');
+                loader.classList.add('hidden');
+                document.getElementById('auth-screen')?.classList.remove('hidden');
+            }
+        }, 12000);
+
+        // Проверка поддержки ES2020
+        try {
+            eval('window?.foo');
+            console.log('✅ ES2020 support: OK');
+        } catch (e) {
+            console.error('❌ ES2020 NOT SUPPORTED! (Optional chaining fail)');
+        }
+    </script>
     <div id="app">
         <!-- Экран загрузки -->
         <div id="loading-screen" class="loading-screen">
             <div class="spinner"></div>
             <p>Загрузка...</p>
+            
+            <!-- Мини-консоль для отладки на мобильных -->
+            <div id="mobile-debug-console" style="margin-top: 20px; padding: 10px; background: #000; color: #0f0; font-family: monospace; font-size: 10px; text-align: left; max-height: 180px; overflow-y: auto; border-radius: 4px; display: block; width: 90%; margin-left: auto; margin-right: auto; z-index: 10001; position: relative;">
+                <div>[System] Debug console initialized</div>
+            </div>
+
             <div id="emergency-reset-container" style="display: none; margin-top: 20px; text-align: center; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #eee;">
                 <p style="font-size: 14px; color: #333; margin-bottom: 12px; font-weight: 500;">Проблема с загрузкой?</p>
                 <button onclick="forceClearAndReload()" class="btn btn-warning" style="padding: 10px 20px; font-size: 14px; width: 100%;">
@@ -63,20 +129,22 @@
         <script>
             // Таймер для показа кнопки экстренного сброса
             setTimeout(function() {
+                console.warn('Watchdog: 7 seconds passed');
                 const container = document.getElementById('emergency-reset-container');
                 if (container) container.style.display = 'block';
             }, 7000);
 
-            // Функция полной очистки для мобильных устройств
+            // Функция полной очистки
             function forceClearAndReload() {
+                console.log('Force clearing all caches...');
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(regs => {
-                        regs.forEach(reg => reg.unregister());
+                    navigator.serviceWorker.getRegistrations().then(function(regs) {
+                        for(var i=0; i<regs.length; i++) regs[i].unregister();
                     });
                 }
                 if ('caches' in window) {
-                    caches.keys().then(keys => {
-                        keys.forEach(key => caches.delete(key));
+                    caches.keys().then(function(keys) {
+                        for(var i=0; i<keys.length; i++) caches.delete(keys[i]);
                     });
                 }
                 localStorage.clear();
@@ -437,19 +505,7 @@
 
     <!-- Механизмы загрузки и управления -->
     <script src="supabase-fallback.js?v=1.6.2"></script>
-    <script src="main.js?v=4.0.5"></script>
-    
-    <script>
-        // Резервное скрытие загрузки, если основной скрипт не запустился
-        setTimeout(function() {
-            const loader = document.getElementById('loading-screen');
-            if (loader && !loader.classList.contains('hidden')) {
-                console.warn('⚠️ Резервный таймер: скрываю загрузку');
-                loader.classList.add('hidden');
-                document.getElementById('auth-screen')?.classList.remove('hidden');
-            }
-        }, 5000);
-    </script>
+    <script src="main.js?t=202601111845"></script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>

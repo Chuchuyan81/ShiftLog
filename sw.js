@@ -1,5 +1,5 @@
-// Service Worker для PWA функциональности (v1.6.2)
-const CACHE_NAME = 'shift-log-v1.6.2';
+// Service Worker для PWA функциональности (v1.6.3)
+const CACHE_NAME = 'shift-log-v1.6.3';
 const urlsToCache = [
     './',
     './index.html',
@@ -14,17 +14,14 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Устанавливаю Service Worker v1.6.0');
+    console.log('SW: Install v1.6.3');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
-                console.log('SW: Кэширую файлы по одному (отказоустойчиво)...');
                 return Promise.allSettled(
-                    urlsToCache.map(url => {
-                        return cache.add(url).then(() => {
-                            console.log(`SW: Закешировано: ${url}`);
-                        }).catch(err => {
-                            console.warn(`SW: Не удалось закешировать ${url}:`, err);
+                    urlsToCache.map(function(url) {
+                        return cache.add(url).catch(function(err) {
+                            console.error('SW: Cache add failed for ' + url, err);
                         });
                     })
                 );
@@ -35,13 +32,13 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Активирую Service Worker v1.6.0');
+    console.log('SW: Activate v1.6.3');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
                 cacheNames.map(function(cacheName) {
                     if (cacheName !== CACHE_NAME) {
-                        console.log('SW: Удаляю старый кэш:', cacheName);
+                        console.log('SW: Removing old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
