@@ -1,3 +1,7 @@
+// #region agent log
+fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:top',message:'main.js script execution started',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'B'})}).catch(()=>{});
+// #endregion
+
 // Глобальный клиент Supabase (инстанс)
 var supabase = null; 
 
@@ -538,6 +542,9 @@ setTimeout(() => {
 
 // Функция для создания клиента Supabase с повторными попытками
 async function initSupabaseClient() {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:initSupabaseClient',message:'Attempting to create Supabase client',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     const maxRetries = 15; // Еще больше попыток
     const retryDelay = 500; 
     
@@ -1013,6 +1020,9 @@ if (document.readyState === 'loading') {
 }
 
 async function initializeApp() {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:initializeApp',message:'initializeApp started',data:{isInitializing, isInitialized},timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     console.log('🔧 initializeApp запущена - START');
     console.log('📊 Начальное состояние:', {
         isInitializing: isInitializing,
@@ -1880,6 +1890,9 @@ function switchScreen(screenName) {
 
 // Загрузка данных пользователя с оптимизацией для слабого интернета
 async function loadUserData() {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:loadUserData',message:'loadUserData started',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     console.log('🔄 loadUserData начата с улучшенной загрузкой');
     
     try {

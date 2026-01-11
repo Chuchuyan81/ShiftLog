@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <script>
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:head',message:'HTML parsing started',data:{userAgent:navigator.userAgent},timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
+        // #endregion
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
