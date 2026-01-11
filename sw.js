@@ -1,10 +1,10 @@
 // Service Worker для PWA функциональности
-const CACHE_NAME = 'shift-log-v1.4.2';
+const CACHE_NAME = 'shift-log-v1.5.0';
 const urlsToCache = [
     './',
     './index.html',
     './style.css',
-    './main.js',
+    './main.js?v=4.0.0',
     './supabase-fallback.js',
     './manifest.json',
     './icon-192.svg',
@@ -64,6 +64,7 @@ self.addEventListener('fetch', function(event) {
         url.includes('cdn.jsdelivr.net') || 
         url.includes('unpkg.com') ||
         url.includes('cdnjs.cloudflare.com') ||
+        url.includes('main.js?v=') || // РАЗРЕШАЕМ ВЕРСИОНИРОВАННЫЙ MAIN.JS
         !url.startsWith(self.location.origin)) {
         
         console.log('SW: Пропускаю внешний ресурс:', url);

@@ -400,7 +400,7 @@
 
     <!-- Резервные механизмы загрузки и управления -->
     <script src="supabase-fallback.js"></script>
-    <script src="main.js"></script>
+    <script src="main.js?v=4.0.0" onerror="console.error('❌ HTML: Ошибка загрузки main.js!')" onload="console.log('✅ HTML: main.js загружен успешно')"></script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>
