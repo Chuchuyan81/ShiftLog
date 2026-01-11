@@ -2,6 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <script>
+        // ЭКСТРЕННЫЙ СБРОС КЭША И SERVICE WORKER
+        (function() {
+            const currentVersion = 'v1.5.1';
+            if (localStorage.getItem('app_version') !== currentVersion) {
+                console.log('🚨 Обнаружено обновление или зависание. Сброс кэша...');
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        for (let reg of regs) reg.unregister();
+                    });
+                }
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        for (let name of names) caches.delete(name);
+                    });
+                }
+                localStorage.setItem('app_version', currentVersion);
+                setTimeout(() => { window.location.reload(true); }, 500);
+            }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
     <link rel="stylesheet" href="style.css?v=2.6.2">
@@ -399,8 +420,20 @@
     </div>
 
     <!-- Резервные механизмы загрузки и управления -->
-    <script src="supabase-fallback.js"></script>
-    <script src="main.js?v=4.0.0" onerror="console.error('❌ HTML: Ошибка загрузки main.js!')" onload="console.log('✅ HTML: main.js загружен успешно')"></script>
+    <script src="supabase-fallback.js?v=1.5.1"></script>
+    <script src="main.js?v=4.0.1" onerror="console.error('❌ HTML: Ошибка загрузки main.js!')" onload="console.log('✅ HTML: main.js загружен успешно')"></script>
+    
+    <script>
+        // Резервное скрытие загрузки, если main.js не справился
+        setTimeout(function() {
+            const loader = document.getElementById('loading-screen');
+            if (loader && !loader.classList.contains('hidden')) {
+                console.warn('⚠️ Резервный таймер: скрываю загрузку принудительно');
+                loader.classList.add('hidden');
+                document.getElementById('auth-screen')?.classList.remove('hidden');
+            }
+        }, 8000);
+    </script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>
