@@ -400,7 +400,7 @@
 
     <!-- Механизмы загрузки и управления -->
     <script src="supabase-fallback.js"></script>
-    <script src="main.js?t=20260111"></script>
+    <script src="main.js"></script>
     
     <script>
         // Резервное скрытие загрузки, если основной скрипт не запустился
@@ -418,12 +418,12 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('sw.js')
                     .then(function(registration) {
-                        console.log('ServiceWorker registered: ', registration.scope);
+                        console.log('✅ ServiceWorker зарегистрирован: ', registration.scope);
                     })
                     .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
+                        console.log('❌ Ошибка ServiceWorker: ', error);
                     });
             });
         }
