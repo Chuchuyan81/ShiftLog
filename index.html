@@ -1,11 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <script>
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:head',message:'HTML parsing started',data:{userAgent:navigator.userAgent},timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
-        // #endregion
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
@@ -46,12 +41,6 @@
     <link rel="canonical" href="https://shiftlog.netlify.app">
 </head>
 <body>
-    <script>
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:body-top',message:'Body scripts started',timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
-        // #endregion
-
-        // Глобальный перехват ошибок
         window.onerror = function(msg, url, line, col, error) {
             const debugDiv = document.getElementById('mobile-debug-console');
             if (debugDiv) {
@@ -99,17 +88,12 @@
             }
         }, 12000);
 
-        // Проверка поддержки ES2020
+        // Проверка поддержки современных функций (информативно)
         try {
-            eval('window["foo"]'); // Убираем ?. из eval, чтобы сам eval не упал на старых браузерах до теста
-            console.log('✅ Basic JS support: OK');
-            
-            // Тест на ?.
-            var testObj = {a:1};
-            eval('testObj?.a');
+            eval('var testObj = {a:1}; testObj?.a');
             console.log('✅ ES2020 support: OK');
         } catch (e) {
-            console.error('❌ ES2020 NOT SUPPORTED! (Optional chaining fail)');
+            console.warn('⚠️ Ограниченная поддержка ES2020 (?. не поддерживается)');
         }
     </script>
     <div id="app">
@@ -510,7 +494,9 @@
     </div>
 
     <!-- Механизмы загрузки и управления -->
+    <script>console.log('📦 Загрузка скриптов базы данных...');</script>
     <script src="supabase-fallback.js?v=1.6.3"></script>
+    <script>console.log('📦 Загрузка основного приложения...');</script>
     <script src="main.js?v=4.0.6"></script>
     
     <!-- Регистрация Service Worker для PWA -->

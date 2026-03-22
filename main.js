@@ -1,8 +1,5 @@
-// #region agent log
-fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:top',message:'main.js script execution started',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'B'})}).catch(()=>{});
-// #endregion
-
 // Глобальный клиент Supabase (инстанс)
+console.log('🚀 main.js: Скрипт начал выполнение');
 var supabase = null; 
 
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
@@ -542,9 +539,7 @@ setTimeout(() => {
 
 // Функция для создания клиента Supabase с повторными попытками
 async function initSupabaseClient() {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:initSupabaseClient',message:'Attempting to create Supabase client',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
+    console.log('🔧 initSupabaseClient() - START');
     const maxRetries = 15; // Еще больше попыток
     const retryDelay = 500; 
     
@@ -1020,9 +1015,6 @@ if (document.readyState === 'loading') {
 }
 
 async function initializeApp() {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:initializeApp',message:'initializeApp started',data:{isInitializing, isInitialized},timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     console.log('🔧 initializeApp запущена - START');
     console.log('📊 Начальное состояние:', {
         isInitializing: isInitializing,
@@ -1899,9 +1891,7 @@ function switchScreen(screenName) {
 
 // Загрузка данных пользователя с оптимизацией для слабого интернета
 async function loadUserData() {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:loadUserData',message:'loadUserData started',timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
+    console.log('📦 loadUserData() - START');
     console.log('🔄 loadUserData начата с улучшенной загрузкой');
     
     try {
@@ -2711,7 +2701,7 @@ function sortShifts(shiftsToSort) {
     
     console.log('🔄 Сортировка смен по критерию:', sortValue);
     
-    const sortedShifts = [...shiftsToSort];
+    const sortedShifts = shiftsToSort.slice();
     
     switch (sortValue) {
         case 'date-desc':
@@ -2799,8 +2789,7 @@ async function renderShiftsList() {
     }, {});
 
     // Привязываем продукты к сменам
-    const shiftsWithProducts = shifts.map(shift => ({
-        ...shift,
+    const shiftsWithProducts = shifts.map(shift => Object.assign({}, shift, {
         products: productsByShift[shift.id] || []
     }));
     
@@ -3690,8 +3679,7 @@ async function handleShiftSubmit(e) {
         
         // Добавляем продукты смены
         if (shiftProducts.length > 0) {
-            const shiftProductsData = shiftProducts.map(sp => ({
-                ...sp,
+            const shiftProductsData = shiftProducts.map(sp => Object.assign({}, sp, {
                 shift_id: shiftId
             }));
             
@@ -4504,9 +4492,6 @@ async function getCurrentUser() {
         const error = authResult.error;
         
         console.log('📝 Результат getUser:', { hasUser: !!user, hasError: !!error });
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:getCurrentUser',message:'getUser result',data:{hasUser:!!user,hasError:!!error,error:error?error.message:null},timestamp:Date.now(),sessionId:'mobile-debug'})}).catch(()=>{});
-        // #endregion
             
             const elapsed = Date.now() - startTime;
             console.log(`📋 Запрос пользователя занял ${elapsed}ms`);

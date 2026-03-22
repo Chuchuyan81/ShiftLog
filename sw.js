@@ -52,9 +52,6 @@ self.addEventListener('activate', function(event) {
 
 // Обработка запросов
 self.addEventListener('fetch', function(event) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/43a37d4b-67d1-4fad-974c-8b3c59a3c233',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sw.js:fetch',message:'SW intercepting fetch',data:{url:event.request.url},timestamp:Date.now(),sessionId:'mobile-debug',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const url = event.request.url;
     
     // Пропускаем внешние ресурсы (Supabase, CDN)
