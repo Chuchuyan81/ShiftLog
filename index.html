@@ -96,6 +96,20 @@
         } catch (e) {
             console.warn('⚠️ Ограниченная поддержка ES2020 (?. не поддерживается)');
         }
+
+        try {
+            eval('async function testAsync() {}');
+            console.log('✅ ES2017 support: OK (async/await)');
+        } catch (e) {
+            console.error('❌ ES2017 NOT SUPPORTED! (async/await fail)');
+        }
+
+        try {
+            eval('var {a} = {a:1};');
+            console.log('✅ ES6 Destructuring: OK');
+        } catch (e) {
+            console.error('❌ ES6 Destructuring NOT SUPPORTED!');
+        }
     </script>
     <div id="app">
         <!-- Экран загрузки -->

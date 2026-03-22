@@ -1,19 +1,13 @@
-// Глобальный клиент Supabase (инстанс)
 console.log('🚀 main.js: Скрипт начал выполнение (v4.0.7)');
 var supabase = null; 
-
-const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY';
-
-// Состояние приложения
+var SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY';
 var currentUser = null;
 var currentMonth = new Date();
-var reportsMonth = new Date(); // Отдельный месяц для отчетов
+var reportsMonth = new Date();
 var isInitializing = false;
 var isInitialized = false;
-
-// ЭКСТРЕННЫЙ ЛОГ
-console.log('🆘 [CRITICAL] main.js: Переменные инициализированы');
+console.log('🆘 [CRITICAL] main.js: Базовые переменные инициализированы');
 
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 window.emergencyDiagnose = function() {
@@ -622,7 +616,7 @@ console.log('Клиент Supabase создан:', {
 console.log('🚀 Начало загрузки скрипта main.js (НОВАЯ ВЕРСИЯ)');
 
 // ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ ПОСЛЕ ЗАГРУЗКИ
-setTimeout(async () => {
+setTimeout(async function() {
     console.log('🔐 ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ...');
     if (!supabase) {
         console.log('⚠️ Клиент Supabase еще не готов для проверки авторизации');
@@ -648,7 +642,7 @@ setTimeout(async () => {
 }, 3000);
 
 // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ИНИЦИАЛИЗАЦИИ ЧЕРЕЗ 5 СЕКУНД
-setTimeout(async () => {
+setTimeout(async function() {
     console.log('🔍 ПРОВЕРКА СОСТОЯНИЯ ЧЕРЕЗ 5 СЕКУНД...');
     console.log('Флаги:', { isInitialized, isInitializing, currentUser: !!currentUser });
     
@@ -1475,7 +1469,7 @@ function setupShiftsListeners() {
     });
     
     // Добавление смены
-    document.getElementById('add-shift-btn').addEventListener('click', async () => await openShiftModal());
+    document.getElementById('add-shift-btn').addEventListener('click', async function() { await openShiftModal(); });
     
     // Форма смены
     document.getElementById('shift-form').addEventListener('submit', handleShiftSubmit);
@@ -1605,13 +1599,13 @@ function setupSettingsListeners() {
 
 function setupReportsListeners() {
     // Навигация по месяцам в отчетах
-    document.getElementById('reports-prev-month').addEventListener('click', async () => {
+    document.getElementById('reports-prev-month').addEventListener('click', async function() {
         reportsMonth.setMonth(reportsMonth.getMonth() - 1);
         updateReportsMonth();
         await generateReports();
     });
     
-    document.getElementById('reports-next-month').addEventListener('click', async () => {
+    document.getElementById('reports-next-month').addEventListener('click', async function() {
         reportsMonth.setMonth(reportsMonth.getMonth() + 1);
         updateReportsMonth();
         await generateReports();
@@ -2039,7 +2033,7 @@ async function loadProductsAndShiftsInBackground() {
     console.log('🔄 Фоновая загрузка продуктов и смен');
     
     // Загружаем с задержкой, чтобы не блокировать интерфейс
-    setTimeout(async () => {
+    setTimeout(async function() {
         try {
             console.log('📦 Загружаем продукты в фоне...');
             await loadProductsOptimized();
@@ -2801,7 +2795,7 @@ async function renderShiftsList() {
         
         const shiftElement = document.createElement('div');
         shiftElement.className = `shift-card ${!shift.is_workday ? 'holiday' : ''}`;
-        shiftElement.onclick = async () => await editShift(shift);
+        shiftElement.onclick = async function() { await editShift(shift); };
         
         const date = new Date(shift.shift_date);
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -4616,7 +4610,7 @@ function setupAuthStateListener() {
     
     console.log('🔧 Настраиваем auth state listener');
     
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    supabase.auth.onAuthStateChange(async function(event, session) {
         const userId = (session && session.user) ? session.user.id : 'none';
         console.log('Auth state changed:', event, userId);
         console.log('🔍 onAuthStateChange флаги:', { isInitialized: isInitialized, isInitializing: isInitializing });
