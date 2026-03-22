@@ -89,27 +89,21 @@
             }
         }, 12000);
 
-        // Проверка поддержки современных функций (информативно)
-        try {
-            eval('var testObj = {a:1}; testObj?.a');
-            console.log('✅ ES2020 support: OK');
-        } catch (e) {
-            console.warn('⚠️ Ограниченная поддержка ES2020 (?. не поддерживается)');
-        }
-
-        try {
-            eval('async function testAsync() {}');
-            console.log('✅ ES2017 support: OK (async/await)');
-        } catch (e) {
-            console.error('❌ ES2017 NOT SUPPORTED! (async/await fail)');
-        }
-
-        try {
-            eval('var {a} = {a:1};');
-            console.log('✅ ES6 Destructuring: OK');
-        } catch (e) {
-            console.error('❌ ES6 Destructuring NOT SUPPORTED!');
-        }
+        // Проверки БЕЗ eval(): при CSP (Netlify _headers / netlify.toml) script-src без 'unsafe-eval'
+        // вызов eval() всегда падает — это не означает «старый браузер».
+        (function() {
+            var ok = true;
+            var parts = [];
+            if (typeof Promise === 'undefined') { ok = false; parts.push('Promise'); }
+            if (typeof Object.assign !== 'function') { ok = false; parts.push('Object.assign'); }
+            if (typeof Array.from !== 'function') { ok = false; parts.push('Array.from'); }
+            if (typeof fetch !== 'function') { ok = false; parts.push('fetch'); }
+            if (ok) {
+                console.log('✅ Базовая среда: Promise, Object.assign, Array.from, fetch — OK');
+            } else {
+                console.warn('⚠️ Ограниченная среда, нет: ' + parts.join(', '));
+            }
+        })();
     </script>
     <div id="app">
         <!-- Экран загрузки -->
@@ -511,7 +505,7 @@
     <script>console.log('📦 Загрузка скриптов базы данных...');</script>
     <script src="supabase-fallback.js?v=1.6.3"></script>
     <script>
-        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.7');
+        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.8');
         console.log('📦 Попытка загрузки основного приложения...');
         window.addEventListener('error', function(e) {
             if (e.target && e.target.src && e.target.src.indexOf('main.js') !== -1) {
@@ -519,12 +513,12 @@
             }
         }, true);
     </script>
-    <script src="main.js?v=4.0.7"></script>
+    <script src="main.js?v=4.0.8"></script>
     <script>
         if (typeof initializeApp !== 'function') {
             console.error('❌ main.js загружен, но initializeApp не определена. Ошибка синтаксиса в main.js?');
         } else {
-            console.log('✅ main.js загружен и готов к работе (v4.0.7)');
+            console.log('✅ main.js загружен и готов к работе (v4.0.8)');
         }
     </script>
     

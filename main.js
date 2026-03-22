@@ -1,4 +1,4 @@
-console.log('🚀 main.js: Скрипт начал выполнение (v4.0.7)');
+console.log('🚀 main.js: Скрипт начал выполнение (v4.0.8)');
 var supabase = null; 
 var SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY';

@@ -1,10 +1,10 @@
-// Service Worker для PWA функциональности (v1.6.5)
-const CACHE_NAME = 'shift-log-v1.6.5';
+// Service Worker для PWA функциональности (v1.6.6)
+const CACHE_NAME = 'shift-log-v1.6.6';
 const urlsToCache = [
     './',
     './index.html',
     './style.css',
-    './main.js?v=4.0.7',
+    './main.js?v=4.0.8',
     './supabase-fallback.js?v=1.6.3',
     './manifest.json',
     './icon-192.svg',
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Установка Service Worker
 self.addEventListener('install', function(event) {
-    console.log('SW: Install v1.6.5');
+    console.log('SW: Install v1.6.6');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(function(cache) {
@@ -33,7 +33,7 @@ self.addEventListener('install', function(event) {
 
 // Активация Service Worker
 self.addEventListener('activate', function(event) {
-    console.log('SW: Activate v1.6.3');
+    console.log('SW: Activate v1.6.6');
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
             return Promise.all(
