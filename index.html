@@ -82,12 +82,12 @@
         window._watchdogTimer = setTimeout(function() {
             const loader = document.getElementById('loading-screen');
             if (loader && !loader.classList.contains('hidden')) {
-                console.warn('⏰ Watchdog fired: Loader stuck for 12s');
+                console.warn('⏰ Watchdog fired: Loader stuck for 20s');
                 loader.classList.add('hidden');
                 const authScreen = document.getElementById('auth-screen');
                 if (authScreen) authScreen.classList.remove('hidden');
             }
-        }, 12000);
+        }, 20000);
 
         // Проверки БЕЗ eval(): при CSP (Netlify _headers / netlify.toml) script-src без 'unsafe-eval'
         // вызов eval() всегда падает — это не означает «старый браузер».
@@ -128,10 +128,10 @@
         <script>
             // Таймер для показа кнопки экстренного сброса
             setTimeout(function() {
-                console.warn('Watchdog: 7 seconds passed');
+                console.warn('Watchdog: 10 seconds passed');
                 const container = document.getElementById('emergency-reset-container');
                 if (container) container.style.display = 'block';
-            }, 7000);
+            }, 10000);
 
             // Функция полной очистки
             function forceClearAndReload() {
@@ -503,9 +503,9 @@
     </div>
 
     <script>console.log('📦 Загрузка скриптов базы данных...');</script>
-    <script src="supabase-fallback.js?v=1.6.3"></script>
+    <script src="supabase-fallback.js?v=1.6.4"></script>
     <script>
-        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.8');
+        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.9');
         console.log('📦 Попытка загрузки основного приложения...');
         window.addEventListener('error', function(e) {
             if (e.target && e.target.src && e.target.src.indexOf('main.js') !== -1) {
@@ -513,12 +513,12 @@
             }
         }, true);
     </script>
-    <script src="main.js?v=4.0.8"></script>
+    <script src="main.js?v=4.0.9"></script>
     <script>
         if (typeof initializeApp !== 'function') {
             console.error('❌ main.js загружен, но initializeApp не определена. Ошибка синтаксиса в main.js?');
         } else {
-            console.log('✅ main.js загружен и готов к работе (v4.0.8)');
+            console.log('✅ main.js загружен и готов к работе (v4.0.9)');
         }
     </script>
     

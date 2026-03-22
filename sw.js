@@ -1,11 +1,11 @@
-// Service Worker для PWA функциональности (v1.6.6)
-const CACHE_NAME = 'shift-log-v1.6.6';
+// Service Worker для PWA функциональности (v1.6.7)
+const CACHE_NAME = 'shift-log-v1.6.7';
 const urlsToCache = [
     './',
     './index.html',
     './style.css',
-    './main.js?v=4.0.8',
-    './supabase-fallback.js?v=1.6.3',
+    './main.js?v=4.0.9',
+    './supabase-fallback.js?v=1.6.4',
     './manifest.json',
     './icon-192.svg',
     './icon-512.svg',

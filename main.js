@@ -1348,6 +1348,10 @@ function hideLoading() {
     console.log('🎯 hideLoading вызвана');
     console.log('🎯 Скрываем экран загрузки...');
     document.getElementById('loading-screen').classList.add('hidden');
+    if (window._watchdogTimer) {
+        clearTimeout(window._watchdogTimer);
+        console.log('🛑 Watchdog таймер остановлен (успешная загрузка)');
+    }
     console.log('✅ Экран загрузки скрыт');
 }
 
