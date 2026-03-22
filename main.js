@@ -1,5 +1,5 @@
 // Глобальный клиент Supabase (инстанс)
-console.log('🚀 main.js: Скрипт начал выполнение');
+console.log('🚀 main.js: Скрипт начал выполнение (v4.0.7)');
 var supabase = null; 
 
 const SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Журнал Рабочих Смен</title>
-    <link rel="stylesheet" href="style.css?v=2.6.2">
+    <link rel="stylesheet" href="style.css?v=2.6.3">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="description" content="Журнал Рабочих Смен - персональное веб-приложение для учета рабочих смен и расчета заработка">
@@ -494,11 +494,25 @@
         </div>
     </div>
 
-    <!-- Механизмы загрузки и управления -->
     <script>console.log('📦 Загрузка скриптов базы данных...');</script>
     <script src="supabase-fallback.js?v=1.6.3"></script>
-    <script>console.log('📦 Загрузка основного приложения...');</script>
-    <script src="main.js?v=4.0.6"></script>
+    <script>
+        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.7');
+        console.log('📦 Попытка загрузки основного приложения...');
+        window.addEventListener('error', function(e) {
+            if (e.target && e.target.src && e.target.src.indexOf('main.js') !== -1) {
+                console.error('❌ Ошибка загрузки файла main.js! Возможно, файл поврежден или заблокирован.');
+            }
+        }, true);
+    </script>
+    <script src="main.js?v=4.0.7"></script>
+    <script>
+        if (typeof initializeApp !== 'function') {
+            console.error('❌ main.js загружен, но initializeApp не определена. Ошибка синтаксиса в main.js?');
+        } else {
+            console.log('✅ main.js загружен и готов к работе (v4.0.7)');
+        }
+    </script>
     
     <!-- Регистрация Service Worker для PWA -->
     <script>
