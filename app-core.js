@@ -1,4 +1,4 @@
-console.log('🚀 main.js: Скрипт начал выполнение (v4.0.8)');
+console.log('🚀 app-core.js: Скрипт начал выполнение (v4.0.10)');
 var supabase = null; 
 var SUPABASE_URL = 'https://ukuhwaulkvpqkwqbqqag.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdWh3YXVsa3ZwcWt3cWJxcWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDUzMDgsImV4cCI6MjA2NjQyMTMwOH0.dzSK4aP-QB8QjkZ_JrTc-DHEehLwce2Y2leK_VslBqY';
@@ -7,7 +7,7 @@ var currentMonth = new Date();
 var reportsMonth = new Date();
 var isInitializing = false;
 var isInitialized = false;
-console.log('🆘 [CRITICAL] main.js: Базовые переменные инициализированы');
+console.log('🆘 [CRITICAL] app-core.js: Базовые переменные инициализированы');
 
 // ЭКСТРЕННЫЕ ФУНКЦИИ ДИАГНОСТИКИ - создаются сразу
 window.emergencyDiagnose = function() {
@@ -597,7 +597,7 @@ window.addEventListener('supabase-loaded', () => {
 
 // Проверка: если библиотека УЖЕ загружена к этому моменту (событие пропущено)
 if (window.supabase || window.SupabaseJS) {
-    console.log('🔔 Библиотека Supabase уже обнаружена при запуске main.js');
+    console.log('🔔 Библиотека Supabase уже обнаружена при запуске app-core.js');
     if (!supabase) {
         initSupabaseClient().then(client => {
             if (client && !isInitialized && !isInitializing) {
@@ -613,7 +613,7 @@ console.log('Клиент Supabase создан:', {
     supabaseType: typeof supabase
 });
 
-console.log('🚀 Начало загрузки скрипта main.js (НОВАЯ ВЕРСИЯ)');
+console.log('🚀 Начало загрузки скрипта app-core.js (НОВАЯ ВЕРСИЯ)');
 
 // ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА АВТОРИЗАЦИИ ПОСЛЕ ЗАГРУЗКИ
 setTimeout(async function() {

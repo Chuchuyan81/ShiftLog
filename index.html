@@ -505,20 +505,20 @@
     <script>console.log('📦 Загрузка скриптов базы данных...');</script>
     <script src="supabase-fallback.js?v=1.6.4"></script>
     <script>
-        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.9');
+        console.log('🚀 ВЕРСИЯ ПРИЛОЖЕНИЯ: 4.0.10');
         console.log('📦 Попытка загрузки основного приложения...');
         window.addEventListener('error', function(e) {
-            if (e.target && e.target.src && e.target.src.indexOf('main.js') !== -1) {
-                console.error('❌ Ошибка загрузки файла main.js! Возможно, файл поврежден или заблокирован.');
+            if (e.target && e.target.src && e.target.src.indexOf('app-core.js') !== -1) {
+                console.error('❌ Ошибка загрузки файла app-core.js! Возможно, файл поврежден или заблокирован.');
             }
         }, true);
     </script>
-    <script src="main.js?v=4.0.9"></script>
+    <script src="app-core.js?v=4.0.10"></script>
     <script>
         if (typeof initializeApp !== 'function') {
-            console.error('❌ main.js загружен, но initializeApp не определена. Ошибка синтаксиса в main.js?');
+            console.error('❌ app-core.js загружен, но initializeApp не определена. Ошибка синтаксиса в app-core.js?');
         } else {
-            console.log('✅ main.js загружен и готов к работе (v4.0.9)');
+            console.log('✅ app-core.js загружен и готов к работе (v4.0.10)');
         }
     </script>
     
