@@ -3445,6 +3445,82 @@ function calculateShiftTotals() {
 // Флаг для предотвращения множественных отправок
 let isSubmittingShift = false;
 
+async function replaceShiftProductsSafely(shiftId, shiftProducts) {
+    const { data: existingProducts, error: loadError } = await supabase
+        .from('shift_products')
+        .select('id, product_id')
+        .eq('shift_id', shiftId);
+    
+    if (loadError) {
+        console.error('Ошибка загрузки текущих продуктов смены:', loadError);
+        throw loadError;
+    }
+    
+    const existingRows = existingProducts || [];
+    const existingByProductId = {};
+    const duplicateRowIds = [];
+    
+    existingRows.forEach(row => {
+        if (existingByProductId[row.product_id]) {
+            duplicateRowIds.push(row.id);
+        } else {
+            existingByProductId[row.product_id] = row;
+        }
+    });
+    
+    const nextProductIds = shiftProducts.map(sp => sp.product_id);
+    
+    // Сначала записываем новые значения, чтобы при ошибке вставки не удалить старые продажи.
+    for (const sp of shiftProducts) {
+        const existingRow = existingByProductId[sp.product_id];
+        const productData = {
+            product_id: sp.product_id,
+            quantity: sp.quantity,
+            price_snapshot: sp.price_snapshot,
+            commission_snapshot: sp.commission_snapshot,
+            shift_id: shiftId
+        };
+        
+        if (existingRow) {
+            const { error: updateError } = await supabase
+                .from('shift_products')
+                .update(productData)
+                .eq('id', existingRow.id);
+            
+            if (updateError) {
+                console.error('Ошибка обновления продукта смены:', updateError);
+                throw updateError;
+            }
+        } else {
+            const { error: insertError } = await supabase
+                .from('shift_products')
+                .insert(productData);
+            
+            if (insertError) {
+                console.error('Ошибка добавления продукта смены:', insertError);
+                throw insertError;
+            }
+        }
+    }
+    
+    const rowIdsToDelete = existingRows
+        .filter(row => nextProductIds.indexOf(row.product_id) === -1)
+        .map(row => row.id)
+        .concat(duplicateRowIds);
+    
+    if (rowIdsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+            .from('shift_products')
+            .delete()
+            .in('id', rowIdsToDelete);
+        
+        if (deleteError) {
+            console.error('Ошибка удаления устаревших продуктов смены:', deleteError);
+            throw deleteError;
+        }
+    }
+}
+
 async function handleShiftSubmit(e) {
     console.log('=== ОБРАБОТЧИК СОХРАНЕНИЯ СМЕНЫ ВЫЗВАН ===');
     console.log('Event:', e);
@@ -3623,6 +3699,7 @@ async function handleShiftSubmit(e) {
     
     try {
         let shiftId;
+        let isEditingExistingShift = false;
         
         if (editingShift && editingShift.id) {
             // Проверяем, что у редактируемой смены есть корректный ID
@@ -3640,12 +3717,7 @@ async function handleShiftSubmit(e) {
             
             if (error) throw error;
             shiftId = editingShift.id;
-            
-            // Удаляем старые продукты
-            await supabase
-                .from('shift_products')
-                .delete()
-                .eq('shift_id', shiftId);
+            isEditingExistingShift = true;
         } else {
             // Создание новой смены - сначала проверяем на дубликаты
             // Проверяем существование смены с такими же параметрами
@@ -3688,8 +3760,11 @@ async function handleShiftSubmit(e) {
             shiftId = data.id;
         }
         
-        // Добавляем продукты смены
-        if (shiftProducts.length > 0) {
+        if (isEditingExistingShift) {
+            console.log('Безопасно обновляем продукты существующей смены');
+            await replaceShiftProductsSafely(shiftId, shiftProducts);
+        } else if (shiftProducts.length > 0) {
+            // Добавляем продукты новой смены
             const shiftProductsData = shiftProducts.map(sp => ({
                 ...sp,
                 shift_id: shiftId
