@@ -52,6 +52,7 @@ test('журнал смен не падает при удаленном заве
       })
     };
 
+    window.__mockSupabaseClient = mockClient;
     window.supabase = {
       createClient: () => mockClient
     };
@@ -61,6 +62,7 @@ test('журнал смен не падает при удаленном заве
   await page.waitForFunction(() => typeof window.renderShiftsList === 'function');
 
   const renderedText = await page.evaluate(async () => {
+    window.eval('supabase = window.__mockSupabaseClient');
     window.currentUser = { id: 'user-1' };
     window.venues = [];
     window.products = [];
