@@ -666,7 +666,8 @@ setTimeout(async () => {
         }
         try {
             const { data: session } = await supabase.auth.getSession();
-            if (session.session.user) {
+            const activeSession = session ? session.session : null;
+            if (activeSession && activeSession.user) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
                 if (typeof window.restoreAuth === 'function') {
                     await window.restoreAuth();
@@ -2728,8 +2729,10 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const venueRecordA = venues.find(v => v.id === a.venue_id);
+                const venueRecordB = venues.find(v => v.id === b.venue_id);
+                const venueA = (venueRecordA && venueRecordA.name) ? venueRecordA.name : (a.is_workday ? 'Не указано' : 'Выходной');
+                const venueB = (venueRecordB && venueRecordB.name) ? venueRecordB.name : (b.is_workday ? 'Не указано' : 'Выходной');
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2819,7 +2822,7 @@ async function renderShiftsList() {
         
         // Получаем название заведения из массива venues
         const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = (venue && venue.name) ? venue.name : (shift.is_workday ? 'Не указано' : 'Выходной');
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2829,8 +2832,9 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products.name || 
-                                  products.find(p => p.id === sp.product_id).name || 
+                const fallbackProduct = products.find(p => p.id === sp.product_id);
+                const productName = (sp.venue_products && sp.venue_products.name) || 
+                                  (fallbackProduct && fallbackProduct.name) || 
                                   'Неизвестная позиция';
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
@@ -3585,9 +3589,9 @@ async function handleShiftSubmit(e) {
             
             console.log(`Поиск input для продукта ${product.name} (id: ${product.id}):`);
             console.log('Найденный input:', input);
-            console.log('Значение input:', input.value);
+            console.log('Значение input:', input ? input.value : '');
             
-            const quantity = parseInt(input.value) || 0;
+            const quantity = input ? (parseInt(input.value) || 0) : 0;
             console.log(`Количество для ${product.name}: ${quantity}`);
             
             if (quantity > 0) {
@@ -3834,9 +3838,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue.id,
-        venueName: venue.name,
-        isValidId: venue.id && venue.id !== 'undefined'
+        venueId: venue ? venue.id : null,
+        venueName: venue ? venue.name : null,
+        isValidId: venue ? (venue.id && venue.id !== 'undefined') : false
     });
     
     editingVenue = venue;
@@ -4405,7 +4409,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products.name || 'Неизвестно';
+                    const productName = (sp.venue_products && sp.venue_products.name) ? sp.venue_products.name : 'Неизвестно';
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4467,7 +4471,8 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venue = shift.venues || venues.find(v => v.id === shift.venue_id);
+        const venueName = (venue && venue.name) ? venue.name : (shift.is_workday ? 'Не указано' : 'Выходной');
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
@@ -4877,15 +4882,16 @@ window.restoreAuth = async function() {
         console.log('1️⃣ Проверяем текущую сессию...');
         const { data: session, error } = await supabase.auth.getSession();
         
+        const activeSession = session ? session.session : null;
         console.log('📋 Результат getSession:', { 
-            session: !!session.session, 
-            user: !!session.session.user,
+            session: !!activeSession, 
+            user: !!(activeSession && activeSession.user),
             error: error 
         });
         
-        if (session.session.user) {
+        if (activeSession && activeSession.user) {
             console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
-            currentUser = session.session.user;
+            currentUser = activeSession.user;
             
             console.log('2️⃣ Сбрасываем флаги инициализации...');
             isInitialized = false;
@@ -4924,7 +4930,7 @@ window.restoreAuth = async function() {
 async function refreshUserData() {
     console.log('🔄 Принудительное обновление данных пользователя...');
     
-    if (!currentUser.id) {
+    if (!currentUser || !currentUser.id) {
         console.log('⚠️ Нет авторизованного пользователя для обновления данных');
         return;
     }
