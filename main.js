@@ -666,7 +666,7 @@ setTimeout(async () => {
         }
         try {
             const { data: session } = await supabase.auth.getSession();
-            if (session.session.user) {
+            if (session && session.session && session.session.user) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
                 if (typeof window.restoreAuth === 'function') {
                     await window.restoreAuth();
@@ -2728,8 +2728,10 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const venueARecord = venues.find(v => v.id === a.venue_id);
+                const venueBRecord = venues.find(v => v.id === b.venue_id);
+                const venueA = (venueARecord && venueARecord.name) || (a.is_workday ? 'Не указано' : 'Выходной');
+                const venueB = (venueBRecord && venueBRecord.name) || (b.is_workday ? 'Не указано' : 'Выходной');
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2819,7 +2821,7 @@ async function renderShiftsList() {
         
         // Получаем название заведения из массива venues
         const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = (venue && venue.name) || (shift.is_workday ? 'Не указано' : 'Выходной');
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2829,8 +2831,9 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products.name || 
-                                  products.find(p => p.id === sp.product_id).name || 
+                const fallbackProduct = products.find(p => p.id === sp.product_id);
+                const productName = (sp.venue_products && sp.venue_products.name) || 
+                                  (fallbackProduct && fallbackProduct.name) || 
                                   'Неизвестная позиция';
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
@@ -3834,9 +3837,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue.id,
-        venueName: venue.name,
-        isValidId: venue.id && venue.id !== 'undefined'
+        venueId: venue ? venue.id : undefined,
+        venueName: venue ? venue.name : undefined,
+        isValidId: venue && venue.id && venue.id !== 'undefined'
     });
     
     editingVenue = venue;
@@ -4405,7 +4408,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products.name || 'Неизвестно';
+                    const productName = (sp.venue_products && sp.venue_products.name) || 'Неизвестно';
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4467,7 +4470,7 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = (shift.venues && shift.venues.name) || (shift.is_workday ? 'Не указано' : 'Выходной');
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
@@ -4878,12 +4881,12 @@ window.restoreAuth = async function() {
         const { data: session, error } = await supabase.auth.getSession();
         
         console.log('📋 Результат getSession:', { 
-            session: !!session.session, 
-            user: !!session.session.user,
+            session: !!(session && session.session), 
+            user: !!(session && session.session && session.session.user),
             error: error 
         });
         
-        if (session.session.user) {
+        if (session && session.session && session.session.user) {
             console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
             currentUser = session.session.user;
             
