@@ -635,11 +635,12 @@ setTimeout(async () => {
     }
     try {
         const { data: session, error } = await supabase.auth.getSession();
-        console.log('🔍 Результат проверки сессии:', { session: !!session.session, error });
+        const activeSession = session && session.session ? session.session : null;
+        console.log('🔍 Результат проверки сессии:', { session: !!activeSession, error });
         
-        if (session.session && !currentUser) {
+        if (activeSession && !currentUser) {
             console.log('🔄 Найдена активная сессия, но currentUser = null. Восстанавливаем...');
-            currentUser = session.session.user;
+            currentUser = activeSession.user;
             
             // Принудительно запускаем загрузку данных
             if (!isInitialized && !isInitializing) {
@@ -666,7 +667,8 @@ setTimeout(async () => {
         }
         try {
             const { data: session } = await supabase.auth.getSession();
-            if (session.session.user) {
+            const sessionUser = session && session.session && session.session.user ? session.session.user : null;
+            if (sessionUser) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
                 if (typeof window.restoreAuth === 'function') {
                     await window.restoreAuth();
@@ -2728,8 +2730,10 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const foundVenueA = venues.find(v => v.id === a.venue_id);
+                const foundVenueB = venues.find(v => v.id === b.venue_id);
+                const venueA = (foundVenueA && foundVenueA.name) ? foundVenueA.name : (a.is_workday ? 'Не указано' : 'Выходной');
+                const venueB = (foundVenueB && foundVenueB.name) ? foundVenueB.name : (b.is_workday ? 'Не указано' : 'Выходной');
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2819,7 +2823,7 @@ async function renderShiftsList() {
         
         // Получаем название заведения из массива venues
         const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = (venue && venue.name) ? venue.name : (shift.is_workday ? 'Не указано' : 'Выходной');
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2829,8 +2833,9 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products.name || 
-                                  products.find(p => p.id === sp.product_id).name || 
+                const fallbackProduct = products.find(p => p.id === sp.product_id);
+                const productName = (sp.venue_products && sp.venue_products.name) || 
+                                  (fallbackProduct && fallbackProduct.name) || 
                                   'Неизвестная позиция';
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
@@ -3834,9 +3839,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue.id,
-        venueName: venue.name,
-        isValidId: venue.id && venue.id !== 'undefined'
+        venueId: venue && venue.id,
+        venueName: venue && venue.name,
+        isValidId: venue && venue.id && venue.id !== 'undefined'
     });
     
     editingVenue = venue;
@@ -4405,7 +4410,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products.name || 'Неизвестно';
+                    const productName = (sp.venue_products && sp.venue_products.name) || 'Неизвестно';
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4467,7 +4472,7 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = (shift.venues && shift.venues.name) || (shift.is_workday ? 'Не указано' : 'Выходной');
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
@@ -4876,16 +4881,17 @@ window.restoreAuth = async function() {
     try {
         console.log('1️⃣ Проверяем текущую сессию...');
         const { data: session, error } = await supabase.auth.getSession();
+        const sessionUser = session && session.session && session.session.user ? session.session.user : null;
         
         console.log('📋 Результат getSession:', { 
-            session: !!session.session, 
-            user: !!session.session.user,
+            session: !!(session && session.session), 
+            user: !!sessionUser,
             error: error 
         });
         
-        if (session.session.user) {
+        if (sessionUser) {
             console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
-            currentUser = session.session.user;
+            currentUser = sessionUser;
             
             console.log('2️⃣ Сбрасываем флаги инициализации...');
             isInitialized = false;
