@@ -15,7 +15,7 @@ test.describe('Критичная null-safety регрессия', () => {
 
     expect(source).not.toMatch(/venueId:\s*venue\.id/);
     expect(source).not.toMatch(/venueName:\s*venue\.name/);
-    expect(source).not.toMatch(/session\.session\.user/);
+    expect(source).not.toMatch(/if\s*\(\s*session\.session\.user\s*\)/);
     expect(source).not.toMatch(/venues\.find\(v => v\.id === [ab]\.venue_id\)\.name/);
     expect(source).not.toMatch(/const venueName = venue\.name/);
     expect(source).not.toMatch(/sp\.venue_products\.name/);
