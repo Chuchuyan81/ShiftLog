@@ -635,11 +635,12 @@ setTimeout(async () => {
     }
     try {
         const { data: session, error } = await supabase.auth.getSession();
-        console.log('🔍 Результат проверки сессии:', { session: !!session.session, error });
+        const activeSession = session && session.session ? session.session : null;
+        console.log('🔍 Результат проверки сессии:', { session: !!activeSession, error });
         
-        if (session.session && !currentUser) {
+        if (activeSession && !currentUser) {
             console.log('🔄 Найдена активная сессия, но currentUser = null. Восстанавливаем...');
-            currentUser = session.session.user;
+            currentUser = activeSession.user;
             
             // Принудительно запускаем загрузку данных
             if (!isInitialized && !isInitializing) {
@@ -666,7 +667,8 @@ setTimeout(async () => {
         }
         try {
             const { data: session } = await supabase.auth.getSession();
-            if (session && session.session && session.session.user) {
+            const activeSession = session && session.session ? session.session : null;
+            if (activeSession && activeSession.user) {
                 console.log('🔄 Восстанавливаем пользователя и инициализируем...');
                 if (typeof window.restoreAuth === 'function') {
                     await window.restoreAuth();
@@ -4887,16 +4889,17 @@ window.restoreAuth = async function() {
     try {
         console.log('1️⃣ Проверяем текущую сессию...');
         const { data: session, error } = await supabase.auth.getSession();
+        const activeSession = session && session.session ? session.session : null;
         
         console.log('📋 Результат getSession:', { 
-            session: !!session.session, 
-            user: !!session.session.user,
+            session: !!activeSession, 
+            user: !!(activeSession && activeSession.user),
             error: error 
         });
         
-        if (session.session.user) {
+        if (activeSession && activeSession.user) {
             console.log('✅ Активная сессия найдена! Восстанавливаем пользователя...');
-            currentUser = session.session.user;
+            currentUser = activeSession.user;
             
             console.log('2️⃣ Сбрасываем флаги инициализации...');
             isInitialized = false;
