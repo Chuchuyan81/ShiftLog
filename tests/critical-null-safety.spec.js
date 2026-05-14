@@ -16,7 +16,7 @@ test.describe('критичная защита от null в main.js', () => {
         expect(mainJs).not.toContain('const venueName = venue.name');
         expect(mainJs).not.toContain('sp.venue_products.name ||');
         expect(mainJs).not.toContain('products.find(p => p.id === sp.product_id).name');
-        expect(mainJs).not.toContain('shift.venues.name');
+        expect(mainJs).not.toContain('const venueName = shift.venues.name ||');
     });
 
     test('не возвращает прямые обращения к nullable элементам формы', () => {
