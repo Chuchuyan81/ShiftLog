@@ -2704,6 +2704,32 @@ async function loadShiftProducts(shiftId) {
     }
 }
 
+// Безопасное получение названия заведения для исторических смен
+function getVenueNameById(venueId, isWorkday) {
+    const fallbackName = isWorkday ? 'Не указано' : 'Выходной';
+    const venue = venues.find(v => v.id === venueId);
+    return venue && venue.name ? venue.name : fallbackName;
+}
+
+// Безопасное получение названия позиции из JOIN'а или локального списка
+function getShiftProductName(shiftProduct) {
+    if (shiftProduct && shiftProduct.venue_products && shiftProduct.venue_products.name) {
+        return shiftProduct.venue_products.name;
+    }
+    
+    const product = products.find(p => shiftProduct && p.id === shiftProduct.product_id);
+    return product && product.name ? product.name : 'Неизвестная позиция';
+}
+
+// Безопасное получение названия заведения в отчетах
+function getReportVenueName(shift) {
+    if (shift && shift.venues && shift.venues.name) {
+        return shift.venues.name;
+    }
+    
+    return shift && shift.is_workday ? 'Не указано' : 'Выходной';
+}
+
 // Функция сортировки смен
 function sortShifts(shiftsToSort) {
     const sortSelect = document.getElementById('sort-select');
@@ -2728,8 +2754,8 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const venueA = getVenueNameById(a.venue_id, a.is_workday);
+                const venueB = getVenueNameById(b.venue_id, b.is_workday);
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2818,8 +2844,7 @@ async function renderShiftsList() {
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
         // Получаем название заведения из массива venues
-        const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = getVenueNameById(shift.venue_id, shift.is_workday);
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2829,9 +2854,7 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products.name || 
-                                  products.find(p => p.id === sp.product_id).name || 
-                                  'Неизвестная позиция';
+                const productName = getShiftProductName(sp);
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
                 productsHtml += `
@@ -3834,9 +3857,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue.id,
-        venueName: venue.name,
-        isValidId: venue.id && venue.id !== 'undefined'
+        venueId: venue && venue.id ? venue.id : null,
+        venueName: venue && venue.name ? venue.name : null,
+        isValidId: !!(venue && venue.id && venue.id !== 'undefined')
     });
     
     editingVenue = venue;
@@ -4405,7 +4428,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products.name || 'Неизвестно';
+                    const productName = getShiftProductName(sp);
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4467,7 +4490,7 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = getReportVenueName(shift);
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
