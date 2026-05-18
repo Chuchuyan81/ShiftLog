@@ -2704,6 +2704,30 @@ async function loadShiftProducts(shiftId) {
     }
 }
 
+function getVenueNameForShift(shift) {
+    const fallbackName = shift && shift.is_workday ? 'Не указано' : 'Выходной';
+    
+    if (!shift) {
+        return fallbackName;
+    }
+    
+    if (shift.venues && shift.venues.name) {
+        return shift.venues.name;
+    }
+    
+    const venue = venues.find(v => v.id === shift.venue_id);
+    return venue && venue.name ? venue.name : fallbackName;
+}
+
+function getProductNameForShiftProduct(shiftProduct, fallbackName) {
+    if (shiftProduct && shiftProduct.venue_products && shiftProduct.venue_products.name) {
+        return shiftProduct.venue_products.name;
+    }
+    
+    const product = products.find(p => shiftProduct && p.id === shiftProduct.product_id);
+    return product && product.name ? product.name : fallbackName;
+}
+
 // Функция сортировки смен
 function sortShifts(shiftsToSort) {
     const sortSelect = document.getElementById('sort-select');
@@ -2728,8 +2752,8 @@ function sortShifts(shiftsToSort) {
             break;
         case 'venue':
             sortedShifts.sort((a, b) => {
-                const venueA = venues.find(v => v.id === a.venue_id).name || (a.is_workday ? 'Не указано' : 'Выходной');
-                const venueB = venues.find(v => v.id === b.venue_id).name || (b.is_workday ? 'Не указано' : 'Выходной');
+                const venueA = getVenueNameForShift(a);
+                const venueB = getVenueNameForShift(b);
                 return venueA.localeCompare(venueB, 'ru');
             });
             break;
@@ -2818,8 +2842,7 @@ async function renderShiftsList() {
         const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
         // Получаем название заведения из массива venues
-        const venue = venues.find(v => v.id === shift.venue_id);
-        const venueName = venue.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = getVenueNameForShift(shift);
         
         // Формируем список продуктов
         let productsHtml = '';
@@ -2829,9 +2852,7 @@ async function renderShiftsList() {
             
             shift.products.forEach(sp => {
                 // Получаем имя позиции из JOIN'а или из массива products как fallback
-                const productName = sp.venue_products.name || 
-                                  products.find(p => p.id === sp.product_id).name || 
-                                  'Неизвестная позиция';
+                const productName = getProductNameForShiftProduct(sp, 'Неизвестная позиция');
                 const totalPrice = sp.quantity * sp.price_snapshot;
                 
                 productsHtml += `
@@ -3834,9 +3855,9 @@ function openVenueModal(venue = null) {
         venueType: typeof venue,
         venueIsNull: venue === null,
         venueIsUndefined: venue === undefined,
-        venueId: venue.id,
-        venueName: venue.name,
-        isValidId: venue.id && venue.id !== 'undefined'
+        venueId: venue && venue.id,
+        venueName: venue && venue.name,
+        isValidId: venue && venue.id && venue.id !== 'undefined'
     });
     
     editingVenue = venue;
@@ -4405,7 +4426,7 @@ async function generateReports() {
             
             if (shift.shift_products) {
                 shift.shift_products.forEach(sp => {
-                    const productName = sp.venue_products.name || 'Неизвестно';
+                    const productName = getProductNameForShiftProduct(sp, 'Неизвестно');
                     if (!salesStats[productName]) {
                         salesStats[productName] = {
                             quantity: 0,
@@ -4467,7 +4488,7 @@ function exportData() {
     let csv = 'Дата,Заведение,Статус,Выручка,Выход,Чаевые,Заработок\n';
     
     reportsShifts.forEach(shift => {
-        const venueName = shift.venues.name || (shift.is_workday ? 'Не указано' : 'Выходной');
+        const venueName = getVenueNameForShift(shift);
         csv += `${shift.shift_date},${venueName},${shift.is_workday ? 'Рабочий' : 'Выходной'},${shift.revenue_generated || 0},${shift.fixed_payout || 0},${shift.tips || 0},${shift.earnings || 0}\n`;
     });
     
