@@ -11,8 +11,8 @@ test.describe('критичная null safety после ES2020-cleanup', () => 
             /venueId:\s*venue\.id/,
             /venueName:\s*venue\.name/,
             /isValidId:\s*venue\.id/,
-            /shift\.venues\.name/,
-            /sp\.venue_products\.name/,
+            /const\s+venueName\s*=\s*shift\.venues\.name/,
+            /const\s+productName\s*=\s*sp\.venue_products\.name/,
             /products\.find\(p => p\.id === [^)]+\)\.name/,
             /venues\.find\([^)]+\)\.name/
         ];
